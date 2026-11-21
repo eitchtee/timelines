@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from django.db import connection
-from django.db.models import Q, QuerySet
+from django.db.models import F, Q, QuerySet
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.text import slugify
@@ -185,6 +185,15 @@ def parse_search_query(q: str) -> ParsedSearchQuery:
     return parsed
 
 
+def _fts5_query(terms: list[str]) -> str:
+    """Each term as a quoted FTS5 phrase with a prefix star, all required.
+
+    Quoting keeps user input from being read as FTS5 syntax (AND, NEAR, -, ^);
+    the star makes "chick" find "chicken".
+    """
+    return " ".join('"' + t.replace('"', '""') + '"*' for t in terms if t.strip())
+
+
 def search_events(
     queryset: QuerySet,
     q: str = "",
@@ -281,6 +290,32 @@ def search_events(
                     | Q(search_document__icontains=joined)
                 )
                 .order_by("-_search_rank", "-_trigram_sim", "-started_at")
+            )
+        elif connection.vendor == "sqlite":
+            # FTS5 (migration 0005) gives stemming, prefix matches and bm25
+            # ranking; plain substring matching stays as a fallback so
+            # nothing that used to match stops matching.
+            from django.db.models.expressions import RawSQL
+
+            fts_query = _fts5_query(parsed.text_terms)
+            substring = Q()
+            for term in parsed.text_terms:
+                substring &= Q(search_document__icontains=term)
+            fts_ids = RawSQL(
+                "SELECT rowid FROM events_event_fts WHERE events_event_fts MATCH %s",
+                (fts_query,),
+            )
+            rank = RawSQL(
+                "SELECT bm25(events_event_fts) FROM events_event_fts"
+                " WHERE events_event_fts MATCH %s"
+                " AND events_event_fts.rowid = events_event.id",
+                (fts_query,),
+            )
+            queryset = (
+                queryset.filter(Q(id__in=fts_ids) | substring)
+                .annotate(_search_rank=rank)
+                # bm25 is lower-is-better; substring-only hits come last
+                .order_by(F("_search_rank").asc(nulls_last=True), "-started_at")
             )
         else:
             for term in parsed.text_terms:

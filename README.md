@@ -85,9 +85,9 @@ uncomment the `SQL_*` variables in `.env` and start with the `postgres` profile:
 docker compose --profile postgres up -d
 ```
 
-Timelines uses PostgreSQL whenever `SQL_HOST` is set. Search also gets better
-there: ranked full-text and typo-tolerant matching instead of plain substring
-matching. There's no built-in migration between the two.
+Timelines uses PostgreSQL whenever `SQL_HOST` is set. Search works the same way
+on both (word forms, partial words, best matches first); PostgreSQL also forgives
+typos. There's no built-in migration between the two.
 
 ## Running locally (development)
 
