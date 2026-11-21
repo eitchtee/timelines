@@ -1,0 +1,89 @@
+@import 'air-datepicker/air-datepicker.css';
+
+.air-datepicker-global-container {
+    /* above the offcanvas drawer */
+    z-index: 2000;
+}
+
+.air-datepicker {
+    --adp-font-family: inherit;
+    --adp-font-size: 0.8125rem;
+    --adp-width: 17.5rem;
+    --adp-padding: 0.5rem;
+    --adp-border-radius: 0.875rem;
+    --adp-cell-border-radius: 0.5rem;
+    --adp-day-cell-height: 2.125rem;
+    --adp-month-cell-height: 2.75rem;
+    --adp-year-cell-height: 3.5rem;
+    --adp-nav-height: 2.5rem;
+    --adp-nav-arrow-color: var(--muted-foreground);
+    --adp-nav-color-secondary: var(--muted-foreground);
+    --adp-btn-height: 2.25rem;
+    --adp-btn-border-radius: 0.5rem;
+
+    --adp-accent-color: var(--primary);
+    --adp-background-color: var(--popover);
+    --adp-background-color-hover: var(--accent);
+    --adp-background-color-active: var(--accent);
+    --adp-background-color-in-range: color-mix(in oklab, var(--primary) 12%, transparent);
+    --adp-background-color-in-range-focused: color-mix(in oklab, var(--primary) 18%, transparent);
+    --adp-background-color-selected-other-month: var(--primary);
+    --adp-background-color-selected-other-month-focused: var(--primary);
+    --adp-cell-background-color-selected: var(--primary);
+    --adp-cell-background-color-selected-hover: var(--primary);
+    --adp-color: var(--popover-foreground);
+    --adp-color-secondary: var(--muted-foreground);
+    --adp-color-current-date: var(--primary);
+    --adp-color-other-month: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+    --adp-color-other-month-hover: var(--muted-foreground);
+    --adp-color-disabled: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
+    --adp-color-disabled-in-range: var(--muted-foreground);
+    --adp-day-name-color: var(--muted-foreground);
+    --adp-border-color: var(--border);
+    --adp-border-color-inner: var(--border);
+    --adp-border-color-inline: var(--border);
+    --adp-btn-color: var(--foreground);
+    --adp-btn-color-hover: var(--foreground);
+    --adp-btn-background-color-hover: var(--accent);
+    --adp-btn-background-color-active: var(--accent);
+
+    box-shadow: 0 12px 32px -8px rgb(16 20 28 / 0.25), 0 2px 6px -2px rgb(16 20 28 / 0.12);
+    transform-origin: top left;
+}
+
+.dark .air-datepicker {
+    box-shadow: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+}
+
+.air-datepicker-cell.-selected-,
+.air-datepicker-cell.-selected-.-current-,
+.air-datepicker-cell.-selected-.-other-month- {
+    color: var(--primary-foreground);
+}
+
+.air-datepicker-cell.-current- {
+    font-weight: 650;
+}
+
+.air-datepicker-body--day-name {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: none;
+}
+
+.air-datepicker-nav--title {
+    font-weight: 600;
+}
+
+.air-datepicker-nav--title i {
+    color: var(--muted-foreground);
+}
+
+.air-datepicker-button {
+    font-weight: 500;
+}
+
+/* the pointer arrow reads as decoration next to a dropdown */
+.air-datepicker--pointer {
+    display: none;
+}

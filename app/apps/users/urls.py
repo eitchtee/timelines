@@ -1,0 +1,32 @@
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("login/", views.UserLoginView.as_view(), name="login"),
+    path("logout/", views.logout_view, name="logout"),
+    path("user/settings/", views.update_settings, name="user_settings"),
+    path(
+        "user/session/toggle-theme/", views.toggle_theme, name="toggle_theme"
+    ),
+    path(
+        "user/session/toggle-sidebar/",
+        views.toggle_sidebar_status,
+        name="toggle_sidebar_status",
+    ),
+    path("users/", views.users_index, name="users_index"),
+    path("users/list/", views.users_list, name="users_list"),
+    path("user/add/", views.user_add, name="user_add"),
+    path("user/<int:pk>/edit/", views.user_edit, name="user_edit"),
+    path("user/api-tokens/add/", views.api_token_add, name="user_api_token_add"),
+    path(
+        "user/api-tokens/<int:token_id>/revoke/",
+        views.api_token_revoke,
+        name="user_api_token_revoke",
+    ),
+    path(
+        "user/api-tokens/<int:token_id>/delete/",
+        views.api_token_delete,
+        name="user_api_token_delete",
+    ),
+]

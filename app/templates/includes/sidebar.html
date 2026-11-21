@@ -1,0 +1,134 @@
+{% load settings %}
+{% load i18n %}
+
+{% comment %}
+  Two layouts share this markup on desktop (>=lg): "floating" collapses to a 4rem
+  rail that expands on hover, "fixed" stays open. On mobile (<lg), it slides in
+  as a drawer driven by Alpine (toggle-mobile-sidebar event).
+{% endcomment %}
+<div x-data="{ mobileOpen: false }"
+     @toggle-mobile-sidebar.window="mobileOpen = !mobileOpen"
+     @keydown.escape.window="mobileOpen = false"
+     class="app-sidebar {% if request.session.sidebar_status == 'fixed' %}sidebar-fixed{% else %}group sidebar-floating{% endif %}"
+     id="sidebar-container">
+
+  {# Mobile Backdrop #}
+  <div x-show="mobileOpen"
+       x-cloak
+       x-transition.opacity.duration.150ms
+       @click="mobileOpen = false"
+       class="fixed inset-0 z-1040 bg-black/50 backdrop-blur-xs lg:hidden">
+  </div>
+
+  <nav id="sidebar"
+       hx-boost:inherited="true"
+       hx-swap:inherited="transition:true"
+       :class="mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+       class="flex flex-col fixed top-0 left-0 h-full max-lg:w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border lg:group-hover:shadow-[var(--shadow-float)] z-1045 max-lg:transition-transform max-lg:duration-300 max-lg:ease-[cubic-bezier(0.32,0.72,0,1)]">
+
+    <div class="hidden lg:flex items-center justify-between border-b border-sidebar-border sidebar-submenu-header">
+      <a href="{% url 'index' %}" class="m-0 hidden lg:flex items-center justify-start p-4 no-underline sidebar-title text-foreground">
+        <div class="logo shrink-0"></div>
+        <span class="text-lg font-[650] tracking-tight ml-2.5">{% settings "SITE_TITLE" %}</span>
+      </a>
+
+      <button id="sidebar-toggle-btn"
+              class="btn me-2"
+              data-variant="ghost"
+              data-size="icon-sm"
+              hx-get="{% url 'toggle_sidebar_status' %}"
+              _="on click
+                   toggle .sidebar-floating on #sidebar-container
+                   toggle .group on #sidebar-container
+                   toggle .sidebar-fixed on #sidebar-container
+                 end">
+        <i class="fa-solid fa-thumbtack fa-sm"></i>
+        <i class="fa-solid fa-thumbtack-slash fa-sm"></i>
+      </button>
+    </div>
+
+    <div class="lg:hidden flex justify-between items-center p-4 text-foreground border-b border-sidebar-border">
+      <a href="{% url 'index' %}" class="flex items-center justify-start no-underline text-foreground" @click="mobileOpen = false">
+        <div class="logo shrink-0"></div>
+        <span class="text-lg font-[650] tracking-tight ml-2.5">{% settings "SITE_TITLE" %}</span>
+      </a>
+      <button type="button" class="btn" data-variant="ghost" data-size="icon-sm"
+              @click="mobileOpen = false" aria-label="{% translate 'Close' %}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <ul class="sidebar-item-list list-none p-3 flex flex-col gap-1 whitespace-nowrap"
+        @click="if ($event.target.closest('a')) mobileOpen = false">
+
+      {# both carry the current search and range over (data-keep-query, see ui.js) #}
+      <c-components.sidebar-menu-item
+          title="{% translate 'Feed' %}"
+          url='index'
+          active="index"
+          keep_query="true"
+          icon="fa-solid fa-list-ul">
+      </c-components.sidebar-menu-item>
+      <c-components.sidebar-menu-item
+          title="{% translate 'Lanes' %}"
+          url='lanes'
+          active="lanes"
+          keep_query="true"
+          icon="fa-solid fa-bars-staggered">
+      </c-components.sidebar-menu-item>
+      <c-components.sidebar-menu-item
+          title="{% translate 'Calendar' %}"
+          url='calendar'
+          active="calendar"
+          keep_query="true"
+          icon="fa-regular fa-calendar">
+      </c-components.sidebar-menu-item>
+
+      {% if request.user.is_superuser %}
+        <c-components.sidebar-menu-header title="{% translate 'Administration' %}"></c-components.sidebar-menu-header>
+        <c-components.sidebar-menu-item
+            title="{% translate 'Users' %}"
+            url='users_index'
+            active="users_index"
+            icon="fa-solid fa-users">
+        </c-components.sidebar-menu-item>
+      {% endif %}
+    </ul>
+
+    <div class="mt-auto p-3">
+      {% if request.user.is_superuser %}
+        <div class="w-full sidebar-item" role="group">
+          <a class="btn w-full justify-start text-muted-foreground" data-variant="ghost" data-size="sm" href="{% url 'admin:index' %}">
+            <i class="fa-solid fa-screwdriver-wrench fa-fw"></i>
+            <span class="ms-2">{% translate 'Django admin' %}</span>
+          </a>
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="mx-3 mb-3 ps-3 pe-1.5 py-1.5 rounded-xl border border-sidebar-border flex items-center justify-between gap-2">
+        <div class="flex items-center min-w-0">
+          <i class="fa-solid fa-circle-user text-muted-foreground shrink-0"></i>
+          <span class="mx-2 text-[0.8125rem] font-medium truncate sidebar-invisible">
+            {% if user.first_name and user.last_name %}
+              {{ user.first_name }} {{ user.last_name }}
+            {% else %}
+              {{ user.email }}
+            {% endif %}
+          </span>
+        </div>
+
+        <div class="sidebar-invisible flex flex-row items-center gap-1.5 shrink-0">
+          {% include 'includes/navbar/user_menu.html' %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  {% comment %}
+    Widens the hover target so the rail doesn't collapse the instant the
+    pointer drifts past its edge.
+  {% endcomment %}
+  <div class="hidden lg:group-hover:block absolute top-0 left-72 w-8 h-full bg-transparent"></div>
+</div>

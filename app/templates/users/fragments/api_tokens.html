@@ -1,0 +1,89 @@
+{% load crispy_forms_tags %}
+{% load i18n %}
+
+<section>
+  <h3 class="text-lg font-[650] tracking-tight">{% translate "API tokens" %}</h3>
+  <p class="mt-1 text-sm text-muted-foreground">
+    {% translate "For automations (n8n, scripts) and the MCP server. A token is shown once, right after you create it." %}
+  </p>
+
+  {% if raw_token %}
+    <div class="token-new mt-4" x-data="{ copied: false }">
+      <div class="flex items-center gap-2 text-sm font-semibold">
+        <i class="fa-solid fa-key text-(--live-ink)"></i>{% translate "Copy this token now" %}
+      </div>
+      <p class="mt-0.5 text-xs text-muted-foreground">{% translate "It won't be shown again." %}</p>
+      <div class="search !h-10 !rounded-[0.625rem] mt-3">
+        <input id="raw-token-value" type="text" readonly value="{{ raw_token }}"
+               class="!ps-3 !text-[0.8125rem]" aria-label="{% translate 'New token' %}"
+               @focus="$el.select()">
+        <button type="button" class="btn me-1" data-size="sm"
+                @click="navigator.clipboard.writeText($el.previousElementSibling.value); copied = true; setTimeout(() => copied = false, 1500)">
+          <i class="fa-regular text-[0.7rem]" :class="copied ? 'fa-solid fa-check' : 'fa-copy'"></i>
+          <span x-text="copied ? '{% translate 'Copied' %}' : '{% translate 'Copy' %}'">{% translate "Copy" %}</span>
+        </button>
+      </div>
+    </div>
+  {% endif %}
+
+  <form class="mt-4" hx-post="{% url 'user_api_token_add' %}" hx-target="#api-token-settings" hx-swap="innerHTML" novalidate>
+    {% crispy api_token_form %}
+  </form>
+
+  {% if api_tokens %}
+    <ul class="mt-5 divide-y divide-border rounded-xl border border-border">
+      {% for token in api_tokens %}
+        <li class="flex items-start gap-3 px-4 py-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold">{{ token.name }}</span>
+              {% if token.revoked_at %}
+                <span class="user-badge" data-kind="off">{% translate "Revoked" %}</span>
+              {% else %}
+                <span class="user-badge" data-kind="on">{% translate "Active" %}</span>
+              {% endif %}
+            </div>
+            <div class="mt-0.5 font-mono text-xs text-muted-foreground break-all">pat_{{ token.token_key }}.••••••</div>
+            <div class="mt-1 text-xs text-muted-foreground">
+              {% blocktranslate with created=token.created_at|date:"SHORT_DATE_FORMAT" %}Created {{ created }}{% endblocktranslate %},
+              {% if token.last_used_at %}
+                {% blocktranslate with used=token.last_used_at|timesince %}used {{ used }} ago{% endblocktranslate %},
+              {% else %}
+                {% translate "never used" %},
+              {% endif %}
+              {% if token.expires_at %}
+                {% blocktranslate with expires=token.expires_at|date:"SHORT_DATE_FORMAT" %}expires {{ expires }}{% endblocktranslate %}
+              {% else %}
+                {% translate "no expiry" %}
+              {% endif %}
+            </div>
+          </div>
+          {% if not token.revoked_at %}
+            <button type="button" class="btn text-destructive hover:!bg-destructive/10 shrink-0" data-variant="ghost" data-size="sm"
+                    hx-delete="{% url 'user_api_token_revoke' token_id=token.id %}"
+                    hx-target="#api-token-settings"
+                    hx-swap="innerHTML"
+                    hx-confirm="{% translate 'Revoke this token?' %}"
+                    data-confirm-detail="{% translate 'Anything using it stops working immediately.' %}"
+                    data-confirm-text="{% translate 'Revoke' %}">
+              <i class="fa-solid fa-ban text-[0.7rem]"></i>{% translate 'Revoke' %}
+            </button>
+          {% else %}
+            <button type="button" class="btn text-muted-foreground shrink-0" data-variant="ghost" data-size="icon-sm"
+                    aria-label="{% translate 'Delete' %}"
+                    hx-delete="{% url 'user_api_token_delete' token_id=token.id %}"
+                    hx-target="#api-token-settings"
+                    hx-swap="innerHTML"
+                    hx-confirm="{% translate 'Delete this token?' %}"
+                    data-confirm-detail="{% translate 'It disappears from this list for good.' %}"
+                    data-confirm-text="{% translate 'Delete' %}">
+              <i class="fa-regular fa-trash-can text-[0.75rem]"></i>
+            </button>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <c-msg.empty title="{% translate 'No tokens yet' %}" icon="fa-solid fa-key" remove-padding></c-msg.empty>
+  {% endif %}
+</section>

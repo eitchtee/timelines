@@ -1,0 +1,43 @@
+<div x-data="{
+       open: false,
+       openDrawer() {
+         this.open = true;
+       },
+       closeDrawer() {
+         this.open = false;
+         setTimeout(() => {
+           if (!this.open && this.$refs.panel) {
+             this.$refs.panel.innerHTML = '';
+           }
+         }, 260);
+       }
+     }"
+     @htmx:after:swap.window="
+       const target = $event.detail?.ctx?.target || $event.target;
+       if (target && (target.id === 'generic-offcanvas' || target.id === 'persistent-generic-offcanvas')) {
+         if (target.innerHTML.trim().length > 0) openDrawer();
+       }
+     "
+     @hide_offcanvas.window="closeDrawer()"
+     @force_hide_offcanvas.window="closeDrawer()"
+     @keydown.escape.window="if (open) closeDrawer()">
+
+  <div x-show="open" x-cloak class="scrim z-1090" @click="closeDrawer()"
+       x-transition:enter="scrim-enter" x-transition:enter-start="fade-from" x-transition:enter-end="fade-to"
+       x-transition:leave="scrim-leave" x-transition:leave-start="fade-to" x-transition:leave-end="fade-from"></div>
+
+  <aside x-show="open" x-cloak
+         x-transition:enter="drawer-enter" x-transition:enter-start="drawer-from" x-transition:enter-end="drawer-to"
+         x-transition:leave="drawer-leave" x-transition:leave-start="drawer-to" x-transition:leave-end="drawer-from"
+         @click="if ($event.target.closest('[data-bs-dismiss=offcanvas]')) closeDrawer()"
+         role="dialog" aria-modal="true"
+         class="tl-drawer">
+    <div class="sm:hidden mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border" aria-hidden="true"></div>
+    <div id="generic-offcanvas" x-ref="panel" class="flex flex-col flex-1 min-h-0 overflow-hidden"></div>
+  </aside>
+
+  {# Legacy hidden targets for compatibility with scaffolded views #}
+  <div id="persistent-generic-offcanvas" class="hidden"></div>
+  <div id="generic-offcanvas-left" class="hidden"></div>
+  <div id="persistent-generic-offcanvas-left" class="hidden"></div>
+</div>

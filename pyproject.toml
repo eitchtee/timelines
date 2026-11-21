@@ -1,0 +1,51 @@
+[project]
+name = "timelines"
+version = "0.1.0"
+description = "Track and visualize minor life events on connected timelines."
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "Herculino Trotta", email = "hello@herculino.com" }]
+dependencies = [
+    "django~=5.2.16",
+    "django-cachalot~=2.9.0",
+    "django-cotton~=2.7.2",
+    "django-crispy-forms==2.6",
+    "crispy-bootstrap5==2026.3",
+    "django-filter==25.2",
+    "django-hijack==3.7.8",
+    "django-vite==3.1.0",
+    "gunicorn==26.0.0",
+    "psycopg[binary,pool]==3.3.4",
+    "whitenoise[brotli]==6.12.0",
+    "django-allauth[socialaccount]~=65.18.0",
+    "djangorestframework~=3.17.1",
+    "drf-spectacular~=0.29.0",
+    "django-pwa~=2.0.1",
+    "mistune~=3.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "django-browser-reload==1.21.0",
+    "django-debug-toolbar==6.3.0",
+    "watchfiles==1.2.0",
+    "ruff~=0.15.0",
+    "pytest~=8.4.0",
+    "pytest-django~=4.11.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "timelines.settings.test"
+pythonpath = ["app"]
+python_files = ["test_*.py", "tests.py"]

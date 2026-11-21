@@ -1,0 +1,18 @@
+{% load settings %}
+{% load i18n %}
+<nav class="sticky top-0 z-30 h-14 border-b border-border bg-background/85 backdrop-blur-md flex lg:hidden px-4" hx-boost:inherited="true">
+  <div class="flex justify-between items-center w-full">
+    <a class="flex items-center gap-2 text-lg font-[650] tracking-tight text-foreground no-underline" href="{% url 'index' %}">
+      <div class="logo"></div>
+      <span>{% settings "SITE_TITLE" %}</span>
+    </a>
+    <button class="btn"
+            data-variant="ghost"
+            data-size="icon-sm"
+            type="button"
+            onclick="window.dispatchEvent(new CustomEvent('toggle-mobile-sidebar'))"
+            aria-label="{% translate 'Toggle navigation' %}">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
+</nav>

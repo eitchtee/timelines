@@ -1,0 +1,18 @@
+{% load i18n %}
+{% comment %}
+  The one confirm/alert dialog (basecoat .alert-dialog), driven by tlConfirm() in ui.js.
+  hx-confirm everywhere goes through it.
+{% endcomment %}
+<dialog id="tl-dialog" class="alert-dialog" aria-labelledby="tl-dialog-title" aria-describedby="tl-dialog-text"
+        data-confirm="{% translate 'Confirm' %}" data-cancel="{% translate 'Cancel' %}">
+  <div>
+    <header>
+      <h2 id="tl-dialog-title"></h2>
+      <p id="tl-dialog-text"></p>
+    </header>
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-cancel></button>
+      <button type="button" class="btn" data-dialog-confirm></button>
+    </footer>
+  </div>
+</dialog>

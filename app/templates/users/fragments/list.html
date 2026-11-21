@@ -1,0 +1,75 @@
+{% load hijack %}
+{% load i18n %}
+
+<header class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-[2rem] sm:text-[2.5rem] leading-none font-[650] tracking-[-0.03em]">{% translate 'Users' %}</h1>
+    <p class="mt-2 text-sm text-muted-foreground">
+      {% blocktranslate count counter=users|length trimmed %}
+        {{ counter }} account
+      {% plural %}
+        {{ counter }} accounts
+      {% endblocktranslate %}
+    </p>
+  </div>
+  <button type="button" class="btn" data-size="sm"
+          hx-get="{% url 'user_add' %}" hx-target="#generic-offcanvas">
+    <i class="fa-solid fa-plus text-[0.7rem]"></i>{% translate 'Add user' %}
+  </button>
+</header>
+
+{% if users %}
+  <div class="mt-6 sm:mt-8" x-data="{ q: '' }">
+    <div class="search">
+      <i class="fa-solid fa-magnifying-glass ms-4 text-sm text-muted-foreground" aria-hidden="true"></i>
+      <input type="search" x-model="q" autocomplete="off" spellcheck="false"
+             aria-label="{% translate 'Filter users' %}"
+             placeholder="{% translate 'Filter by name or email' %}">
+    </div>
+
+    <ul class="user-list mt-4">
+      {% for u in users %}
+        <li class="user-row" x-show="!q || $el.dataset.search.includes(q.toLowerCase())"
+            data-search="{{ u.first_name|lower }} {{ u.last_name|lower }} {{ u.email|lower }}">
+          <span class="user-row__avatar" aria-hidden="true">
+            {% if u.first_name %}{{ u.first_name|first|upper }}{% if u.last_name %}{{ u.last_name|first|upper }}{% endif %}{% else %}{{ u.email|first|upper }}{% endif %}
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span class="font-semibold truncate">
+                {% if u.first_name or u.last_name %}{{ u.first_name }} {{ u.last_name }}{% else %}{{ u.email }}{% endif %}
+              </span>
+              {% if u == request.user %}<span class="user-badge">{% translate 'You' %}</span>{% endif %}
+              {% if u.is_superuser %}<span class="user-badge" data-kind="admin">{% translate 'Admin' %}</span>{% endif %}
+              {% if not u.is_active %}<span class="user-badge" data-kind="off">{% translate 'Inactive' %}</span>{% endif %}
+            </div>
+            {% if u.first_name or u.last_name %}
+              <div class="text-sm text-muted-foreground truncate">{{ u.email }}</div>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            {% if request.user|can_hijack:u and request.user != u %}
+              <button type="button" class="btn text-muted-foreground" data-variant="ghost" data-size="sm"
+                      hx-post="{% url 'hijack:acquire' %}"
+                      hx-vals='{"user_pk":"{{ u.id }}"}'
+                      hx-swap="none"
+                      _="on htmx:after:request(event) from me
+                           if event.detail.ctx.response.raw.ok
+                             go to url '/'">
+                <i class="fa-solid fa-mask text-[0.75rem]"></i><span class="hidden sm:inline">{% translate 'Sign in as' %}</span>
+              </button>
+            {% endif %}
+            <button type="button" class="btn" data-variant="outline" data-size="sm"
+                    hx-get="{% url 'user_edit' pk=u.id %}" hx-target="#generic-offcanvas">
+              <i class="fa-regular fa-pen-to-square text-[0.75rem]"></i>{% translate 'Edit' %}
+            </button>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p x-show="q && ![...$root.querySelectorAll('.user-row')].some(r => r.dataset.search.includes(q.toLowerCase()))" x-cloak
+       class="py-10 text-center text-sm text-muted-foreground">{% translate 'No users match that.' %}</p>
+  </div>
+{% else %}
+  <c-msg.empty title="{% translate 'No users yet' %}" icon="fa-regular fa-user"></c-msg.empty>
+{% endif %}

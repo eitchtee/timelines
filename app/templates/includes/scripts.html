@@ -1,0 +1,16 @@
+{% load django_vite %}
+
+{% vite_hmr_client %}
+{% vite_asset 'main.js' defer="defer" %}
+
+{% include 'includes/scripts/hyperscript/init_tom_select.html' %}
+{% include 'includes/scripts/hyperscript/init_date_picker.html' %}
+{% include 'includes/scripts/hyperscript/htmx_error_handler.html' %}
+{% include 'includes/scripts/hyperscript/autosize.html' %}
+
+<script defer>
+  // The server has no way to know the visitor's zone; hand it over in a cookie
+  // so LocalizationMiddleware can activate it on the next request.
+  var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  document.cookie = "mytz=" + tz + ";path=/;SameSite=Lax";
+</script>

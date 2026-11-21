@@ -1,0 +1,24 @@
+{% load i18n %}
+<script type="text/hyperscript">
+behavior htmx_error_handler
+  on htmx:response:error or htmx:error queue none
+    if event.detail.ctx.response.status == 403 then
+      call tlConfirm({
+        title: '{{ _("Access denied")|escapejs }}',
+        text: '{{ _("You do not have permission to do that or open this.")|escapejs }}',
+        confirmText: '{{ _("OK")|escapejs }}',
+        cancel: false
+      })
+    else
+      call tlConfirm({
+        title: '{{ _("Something went wrong loading your data")|escapejs }}',
+        text: '{{ _("Reload the page, or check the browser console for details.")|escapejs }}',
+        confirmText: '{{ _("Reload")|escapejs }}',
+        cancelText: '{{ _("Close")|escapejs }}'
+      })
+      if it call location.reload() end
+    end
+    then log event
+    then halt the event
+end
+</script>

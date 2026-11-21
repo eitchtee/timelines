@@ -1,0 +1,36 @@
+volumes:
+  timelines_data: {}
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/prod/django/Dockerfile
+    image: eitchtee/timelines:latest
+    container_name: ${SERVER_NAME:-timelines_server}
+    ports:
+      - "${OUTBOUND_PORT:-8000}:${INTERNAL_PORT:-8000}"
+    env_file:
+      - .env
+    volumes:
+      # The SQLite database lives here when SQL_HOST is not set.
+      - timelines_data:/usr/src/app/data/
+      - ./media:/usr/src/app/media/
+    depends_on:
+      db:
+        condition: service_started
+        required: false
+    restart: unless-stopped
+
+  # Only started with `--profile postgres`; set SQL_HOST to use it.
+  db:
+    image: postgres:17-bookworm
+    profiles: [postgres]
+    container_name: ${DB_NAME:-timelines_db}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=${SQL_USER}
+      - POSTGRES_PASSWORD=${SQL_PASSWORD}
+      - POSTGRES_DB=${SQL_DATABASE}
+    restart: unless-stopped

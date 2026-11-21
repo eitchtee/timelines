@@ -1,0 +1,19 @@
+{% load i18n %}
+{# Dropdown for the tlSuggest mixin (search box and Quick log). #}
+{# @mousemove, not @mouseenter: a list opening under a resting pointer must not steal the selection #}
+<div x-show="sugItems.length" x-cloak role="listbox" id="{{ list_id }}" class="{{ list_class }}">
+  <template x-for="(it, i) in sugItems" :key="it.label + i">
+    <button type="button" role="option" tabindex="-1" class="tl-suggest"
+            :aria-selected="i === sugIdx"
+            :data-inert="it.inert ? 'true' : null"
+            @mousedown.prevent="sugPick(it)"
+            @mousemove="sugIdx = i">
+      <template x-if="it.color"><span class="chip__dot" :style="`--tag: ${it.color}`"></span></template>
+      <i x-show="it.date" class="fa-regular fa-calendar text-[0.7rem] text-muted-foreground"></i>
+      <span class="font-medium shrink-0" :class="!it.color && !it.date && 'font-mono text-[0.8125rem]'" x-text="it.label"></span>
+      <span class="min-w-0 truncate text-xs text-muted-foreground" x-text="it.hint || ''"></span>
+      <span class="ms-auto chip__count" x-show="it.meta" x-text="it.meta"></span>
+      <kbd x-show="i === sugIdx && !it.inert" aria-hidden="true">Tab</kbd>
+    </button>
+  </template>
+</div>

@@ -1,0 +1,22 @@
+{% load i18n %}
+{% load toast_bg %}
+{% for message in messages %}
+  <div class="tl-toast"
+       x-data="{
+         leaving: false,
+         timer: null,
+         dismiss() { this.leaving = true; setTimeout(() => $el.remove(), 200); },
+         arm() { this.timer = setTimeout(() => this.dismiss(), 4500); }
+       }"
+       x-init="arm()"
+       @mouseenter="clearTimeout(timer)"
+       @mouseleave="arm()"
+       :data-leaving="leaving ? '' : null">
+    <i class="tl-toast__icon {{ message.tags|toast_icon }}" data-kind="{{ message.tags|toast_bg }}" aria-hidden="true"></i>
+    <span class="min-w-0 flex-1">{{ message }}</span>
+    <button type="button" class="btn text-muted-foreground" data-variant="ghost" data-size="icon-xs"
+            @click="dismiss()" aria-label="{% translate 'Dismiss' %}">
+      <i class="fa-solid fa-xmark text-xs"></i>
+    </button>
+  </div>
+{% endfor %}

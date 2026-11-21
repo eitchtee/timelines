@@ -1,0 +1,330 @@
+{% load i18n %}
+
+{% comment %}
+  Quick log: one line of text does the work. #tag, @date and >part-of open a menu
+  (arrows + Tab/Enter, like search); ↓ opens notes. The badges under the input show
+  what was understood and are clickable shortcuts for the same things.
+  Nothing inside the dialog uses x-transition/x-collapse: a nested Alpine transition
+  stalls the dialog's own hide and leaves it stuck on screen.
+{% endcomment %}
+<div x-data="{
+       ...tlSuggest('quick', 'quickInput'),
+       open: false,
+       instant: false,
+       rawInput: '',
+       running: false,
+       runningFromDate: false,
+       notesOpen: false,
+       parent: null,
+       detectedTags: [],
+       detectedPairs: [],
+       lastFetchedTags: '',
+       whenRaw: '',
+       whenOptions: [],
+
+       openBar(fromKeyboard, preset) {
+         {# keyboard opens are frequent: no motion, it should just be there #}
+         this.instant = !!fromKeyboard;
+         this.open = true;
+         const seeded = preset?.date || preset?.tags?.length;
+         if (seeded) {
+           {# opened from a lane: that lane's tags (on that day); the title goes first #}
+           this.rawInput = (preset.tags || []).map(t => ' #' + t).join('') + (preset.date ? ' @' + preset.date : '');
+           this.parseInput();
+         }
+         this.$nextTick(() => {
+           const el = this.$refs.quickInput;
+           el?.focus();
+           if (seeded) el.setSelectionRange(0, 0);
+         });
+       },
+       closeBar() {
+         this.open = false;
+       },
+       onWindowKey(e) {
+         const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+           || document.activeElement?.isContentEditable;
+         if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing) {
+           e.preventDefault();
+           this.openBar(true);
+         } else if (e.key === 'Escape' && this.open) {
+           this.closeBar();
+         }
+       },
+       onMainKey(e) {
+         if (this.sugItems.length) return this.sugKey(e);
+         if (e.key === 'ArrowDown') {
+           e.preventDefault();
+           this.notesOpen = true;
+           this.$nextTick(() => this.$refs.notes.focus());
+         }
+       },
+       onNotesKey(e) {
+         const el = e.target;
+         if (e.key === 'ArrowUp' && el.selectionStart === 0 && el.selectionEnd === 0) {
+           e.preventDefault();
+           this.$refs.quickInput.focus();
+         } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+           e.preventDefault();
+           this.$refs.form.requestSubmit();
+         }
+       },
+
+       {# put a trigger (#, @, >, key:) at the end of the text and open its menu #}
+       insertToken(text) {
+         let v = this.rawInput;
+         if (v && !/\s$/.test(v)) v += ' ';
+         this.rawInput = v + text;
+         this.$nextTick(() => {
+           const el = this.$refs.quickInput;
+           el.focus();
+           el.setSelectionRange(el.value.length, el.value.length);
+           el.dispatchEvent(new Event('input', { bubbles: true }));
+         });
+       },
+       {# put the caret at the end of an existing token so its menu opens again #}
+       editToken(token) {
+         const el = this.$refs.quickInput;
+         const at = el.value.indexOf(token);
+         if (at < 0) return this.insertToken(token);
+         el.focus();
+         el.setSelectionRange(at + token.length, at + token.length);
+         this.sugRefresh();
+       },
+       removeToken(token) {
+         this.rawInput = this.rawInput.split(/\s+/).filter(w => w && w.toLowerCase() !== token.toLowerCase()).join(' ');
+         this.parseInput();
+       },
+       setParent(ev) {
+         this.parent = ev;
+       },
+
+       resetForm() {
+         {# close first so nothing below can leave the dialog stuck open #}
+         this.open = false;
+         this.rawInput = '';
+         this.running = false;
+         this.runningFromDate = false;
+         this.notesOpen = false;
+         this.parent = null;
+         this.detectedTags = [];
+         this.detectedPairs = [];
+         this.lastFetchedTags = '';
+         this.whenRaw = '';
+         this.whenOptions = [];
+         this.sugItems = [];
+         this.$refs.form?.reset();
+         const container = document.getElementById('suggested-fields-container');
+         if (container) container.innerHTML = '';
+       },
+       parseInput() {
+         const tags = [];
+         const tagRe = /(?:^|\s)#([A-Za-z0-9][A-Za-z0-9_-]{0,62})/g;
+         let m;
+         while ((m = tagRe.exec(this.rawInput)) !== null) {
+           const t = m[1].toLowerCase();
+           if (!tags.includes(t)) tags.push(t);
+         }
+         this.detectedTags = tags;
+
+         const pairs = [];
+         const pairRe = /(?:^|\s)([A-Za-z][A-Za-z0-9_-]{0,62}):(?:\x22([^\x22]*)\x22|'([^']*)'|([^\s]+))/g;
+         while ((m = pairRe.exec(this.rawInput)) !== null) {
+           const val = m[2] ?? m[3] ?? m[4];
+           if (val) pairs.push({ key: m[1].toLowerCase(), val });
+         }
+         this.detectedPairs = pairs;
+
+         if (/(?:^|\s)!(?:ongoing|start)\b/i.test(this.rawInput)) {
+           this.running = true;
+         }
+
+         {# @date: ask the server how it reads, for the badge #}
+         const when = (this.rawInput.match(/(?:^|\s)@(\d\S*)/) || [])[1] || '';
+         if (when !== this.whenRaw) {
+           this.whenRaw = when;
+           this.whenOptions = [];
+           tlInterpretDate(when).then(opts => { if (this.whenRaw === when) this.whenOptions = opts; });
+
+           {# @20/10~ = started then, still running; @20/10~22/10 = over. Only undo what the date set. #}
+           const openEnded = /(~|\.\.)$/.test(when);
+           const closedSpan = /(~|\.\.)./.test(when);
+           if (openEnded) {
+             this.running = true;
+             this.runningFromDate = true;
+           } else if (closedSpan) {
+             this.running = false;
+             this.runningFromDate = false;
+           } else if (this.runningFromDate) {
+             this.running = false;
+             this.runningFromDate = false;
+           }
+         }
+
+         {# fields this tag combination used before become one-click badges #}
+         const tagsKey = tags.join(',');
+         if (tagsKey !== this.lastFetchedTags) {
+           this.lastFetchedTags = tagsKey;
+           if (tagsKey) {
+             htmx.ajax('GET', '{% url 'events_suggested_fields' %}?tags=' + encodeURIComponent(tagsKey), {
+               target: '#suggested-fields-container',
+               swap: 'innerHTML'
+             });
+           } else {
+             const c = document.getElementById('suggested-fields-container');
+             if (c) c.innerHTML = '';
+           }
+         }
+       }
+     }"
+     :data-instant="instant ? '' : null"
+     @keydown.window="onWindowKey($event)"
+     @open-quick-log.window="openBar(false, $event.detail)"
+     @events-changed.camel.window="if ($event.detail?.id) resetForm()">
+
+  <button type="button" class="tl-fab" :data-hidden="open ? 'true' : null" @click="openBar(false)"
+          aria-label="{% translate 'Log an event' %}">
+    <i class="fa-solid fa-plus text-base"></i>
+    <span>{% translate 'Log event' %}</span>
+    <kbd aria-hidden="true">N</kbd>
+  </button>
+
+  <div class="fixed inset-0 z-1050" :class="open ? '' : 'pointer-events-none'" x-cloak>
+    <div class="scrim" x-show="open" @click="closeBar()"
+         x-transition:enter="scrim-enter" x-transition:enter-start="fade-from" x-transition:enter-end="fade-to"
+         x-transition:leave="scrim-leave" x-transition:leave-start="fade-to" x-transition:leave-end="fade-from"></div>
+
+    <div class="relative flex h-full items-end sm:items-start justify-center p-2 sm:p-4 sm:pt-[14vh] pointer-events-none">
+      <form x-ref="form"
+            x-show="open"
+            x-transition:enter="palette-enter" x-transition:enter-start="palette-from" x-transition:enter-end="palette-to"
+            x-transition:leave="palette-leave" x-transition:leave-start="palette-to" x-transition:leave-end="palette-from"
+            class="palette pointer-events-auto"
+            role="dialog" aria-modal="true" aria-label="{% translate 'Log an event' %}"
+            hx-post="{% url 'event_quick_create' %}"
+            hx-swap="none"
+            @htmx:after:request="if ($event.detail?.ctx?.response?.raw?.ok) resetForm()">
+        <input type="hidden" name="shape" :value="running ? 'ongoing' : 'point'">
+        <input type="hidden" name="parent_id" :value="parent?.id || ''">
+
+        <div class="overflow-y-auto">
+          <div class="relative">
+            <input type="text"
+                   name="quick_input"
+                   x-ref="quickInput"
+                   x-model="rawInput"
+                   @input.debounce.120ms="parseInput()"
+                   @input="sugRefresh()"
+                   @click="sugRefresh()"
+                   @keydown="onMainKey($event)"
+                   @blur="sugClose()"
+                   role="combobox"
+                   aria-autocomplete="list"
+                   :aria-expanded="sugItems.length > 0"
+                   aria-controls="quick-suggest"
+                   autocomplete="off"
+                   spellcheck="false"
+                   placeholder="{% translate 'What happened? e.g. Charged watch #watch battery:14 @20/10' %}"
+                   class="palette__input pe-14"
+                   required>
+            <kbd class="absolute right-5 top-1/2 -translate-y-1/2 hidden sm:inline-grid" aria-hidden="true">⏎</kbd>
+          </div>
+
+          {% include "events/fragments/suggest_list.html" with list_id="quick-suggest" list_class="px-2 pb-2 -mt-1" %}
+
+          {# Notes: ↓ from the line above, ↑ at the start goes back #}
+          <div class="grid-collapse" :data-open="notesOpen ? 'true' : null" :inert="!notesOpen">
+            <div class="px-5 pb-3">
+              <textarea name="notes" rows="3" x-ref="notes"
+                        @keydown="onNotesKey($event)"
+                        aria-label="{% translate 'Notes' %}"
+                        placeholder="{% translate 'Notes (Markdown). ↑ to go back, Ctrl+Enter to log' %}"
+                        class="qc-notes"></textarea>
+            </div>
+          </div>
+
+          {# What was understood, and shortcuts to add more #}
+          <div class="qc-badges">
+            <template x-for="tag in detectedTags" :key="'t' + tag">
+              <span class="chip chip--sm token-in cursor-default">
+                <span class="chip__dot"></span><span x-text="'#' + tag"></span>
+                <button type="button" class="qc-x" @click="removeToken('#' + tag)" :aria-label="'{% translate 'Remove' %} #' + tag">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </span>
+            </template>
+            <button type="button" class="chip chip--sm qc-ghost" @click="insertToken('#')">
+              <i class="fa-solid fa-hashtag"></i><span x-text="detectedTags.length ? '' : '{% translate 'Tag' %}'"></span>
+            </button>
+
+            <template x-if="whenRaw">
+              <span class="chip chip--sm token-in" :class="whenOptions.length !== 1 && 'qc-warn'" style="--tag: var(--live)">
+                <button type="button" class="inline-flex items-center gap-1.5 cursor-pointer" @click="editToken('@' + whenRaw)">
+                  <i class="fa-regular fa-calendar text-[0.65rem]"></i>
+                  <span x-text="whenOptions.length === 1 ? whenOptions[0].label
+                                : whenOptions.length > 1 ? '{% translate 'Which date?' %}'
+                                : '@' + whenRaw + ' ?'"></span>
+                </button>
+                <button type="button" class="qc-x" @click="removeToken('@' + whenRaw)" aria-label="{% translate 'Use today' %}">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </span>
+            </template>
+            <button type="button" x-show="!whenRaw" class="chip chip--sm qc-ghost" @click="insertToken('@')">
+              <i class="fa-regular fa-calendar"></i>{% translate 'Today' %}
+            </button>
+
+            {% if ongoing_events %}
+              <template x-if="parent">
+                <span class="chip chip--sm token-in" :style="parent.color && `--tag: ${parent.color}`">
+                  <i class="fa-solid fa-turn-up rotate-90 text-[0.6rem] text-muted-foreground"></i>
+                  <span class="max-w-[12rem] truncate" x-text="parent.title"></span>
+                  <button type="button" class="qc-x" @click="parent = null" aria-label="{% translate 'Not part of it' %}">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </span>
+              </template>
+              <button type="button" x-show="!parent" class="chip chip--sm qc-ghost" @click="insertToken('>')">
+                <i class="fa-solid fa-turn-up rotate-90 text-[0.6rem]"></i>{% translate 'Part of…' %}
+              </button>
+            {% endif %}
+
+            <label class="chip chip--sm qc-switch" :aria-pressed="running" style="--tag: var(--live)">
+              <input type="checkbox" role="switch" class="input" x-model="running">
+              {% translate 'Running' %}
+            </label>
+
+            <button type="button" class="chip chip--sm qc-ghost" :aria-pressed="notesOpen"
+                    @click="notesOpen = !notesOpen; notesOpen && $nextTick(() => $refs.notes.focus())">
+              <i class="fa-regular fa-note-sticky"></i>{% translate 'Notes' %}
+            </button>
+
+            <template x-for="(pair, idx) in detectedPairs" :key="'p' + idx + pair.key">
+              <span class="datum token-in"><span x-text="pair.key"></span><b x-text="pair.val"></b></span>
+            </template>
+
+            {# fields used before with these tags: one click types "key:" #}
+            <span id="suggested-fields-container" class="contents"></span>
+          </div>
+        </div>
+
+        <div class="palette__foot">
+          <p class="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+            <span><span class="font-mono text-foreground">#</span> {% translate 'tag' %}</span>
+            <span><span class="font-mono text-foreground">@</span> {% translate 'date' %}</span>
+            {% if ongoing_events %}<span><span class="font-mono text-foreground">&gt;</span> {% translate 'part of' %}</span>{% endif %}
+            <span><span class="font-mono text-foreground">↓</span> {% translate 'notes' %}</span>
+          </p>
+          <div class="flex items-center gap-2 ms-auto">
+            <button type="button" class="btn" data-variant="ghost" data-size="sm" @click="closeBar()">
+              {% translate 'Cancel' %}
+            </button>
+            <button type="submit" class="btn" data-size="sm">
+              {% translate 'Log event' %}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

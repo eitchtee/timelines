@@ -1,0 +1,18 @@
+{% load i18n %}
+{# Inside the swapped workspace so new tags and counts show up after logging #}
+{% if user_tags %}
+    <div class="mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="{% translate 'Filter by tag' %}">
+      {% for tag in user_tags %}
+        <button type="button" class="chip" style="--tag: {{ tag.color }}"
+                :aria-pressed="hasToken('#{{ tag.slug }}')"
+                @click="toggleToken('#{{ tag.slug }}')">
+          <span class="chip__dot"></span>#{{ tag.name }}<span class="chip__count">{{ tag.event_count }}</span>
+        </button>
+      {% endfor %}
+      <button type="button" class="chip" style="--tag: var(--live)"
+              :aria-pressed="hasToken('is:ongoing')"
+              @click="toggleToken('is:ongoing')">
+        <span class="chip__dot"></span>{% translate 'running' %}
+      </button>
+    </div>
+  {% endif %}

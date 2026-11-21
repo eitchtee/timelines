@@ -1,0 +1,38 @@
+{% extends "layouts/base_auth.html" %}
+{% load i18n %}
+{% load settings %}
+{% load crispy_forms_tags %}
+{% load socialaccount %}
+
+{% block title %}{% translate 'Login' %}{% endblock %}
+
+{% block content %}
+  <div class="min-h-dvh flex flex-col items-center justify-center px-4 py-12">
+    <div class="w-full max-w-sm">
+      <div class="logo !w-11 !h-11 mb-6"></div>
+      <h1 class="text-[1.75rem] font-[650] tracking-[-0.025em] leading-tight">{% settings "SITE_TITLE" %}</h1>
+      <p class="mt-1 mb-7 text-sm text-muted-foreground">{% translate 'Log in to pick up where you left off.' %}</p>
+
+      {% crispy form %}
+
+      {% get_providers as socialaccount_providers %}
+      {% if socialaccount_providers %}
+        <div class="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+          <span class="h-px flex-1 bg-border"></span>{% translate 'or' %}<span class="h-px flex-1 bg-border"></span>
+        </div>
+        <ul class="socialaccount_providers list-none flex flex-col gap-2">
+          {% for provider in socialaccount_providers %}
+            <li>
+              <a title="{{ provider.name }}"
+                 class="btn w-full socialaccount_provider {{ provider.id }}"
+                 data-variant="outline"
+                 href="{% provider_login_url provider %}">
+                {% translate 'Continue with' %} {{ provider.name }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

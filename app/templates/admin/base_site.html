@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+  {{ block.super }}
+  {% include 'includes/head/favicons.html' %}
+  <script>
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    document.cookie = "mytz=" + tz + ";path=/;SameSite=Lax";
+  </script>
+{% endblock %}

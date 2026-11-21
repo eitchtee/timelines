@@ -1,0 +1,256 @@
+{% load i18n %}
+{% load markdown %}
+{% load humanize %}
+{% load event_notes %}
+{% load lane_format %}
+
+<div class="flex flex-col flex-1 min-h-0" x-data="{ editing: false }">
+  <header class="flex items-start gap-3 px-6 pt-5 pb-4 shrink-0">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
+        {% if event.shape == 'ongoing' %}
+          <span class="live-dot"></span><span class="text-(--live-ink)">{% translate 'Running' %}</span>
+        {% elif event.shape == 'span' %}
+          <i class="fa-solid fa-arrows-left-right text-[0.65rem]"></i>{% translate 'From–to' %}
+        {% else %}
+          <i class="fa-regular fa-circle-dot text-[0.7rem]"></i>{% translate 'Moment' %}
+        {% endif %}
+      </div>
+      <h2 class="text-2xl font-[650] leading-tight tracking-[-0.02em] break-words">{{ event.title }}</h2>
+    </div>
+    <button type="button" class="btn -me-2 text-muted-foreground" data-variant="ghost" data-size="icon-sm"
+            data-bs-dismiss="offcanvas" aria-label="{% translate 'Close' %}">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </header>
+
+  <div class="flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
+
+    {# Read view #}
+    <div x-show="!editing" class="space-y-6">
+      <dl class="facts">
+        <dt>{% if event.shape == 'point' %}{% translate 'When' %}{% else %}{% translate 'Started' %}{% endif %}</dt>
+        <dd>
+          {% if event.all_day %}
+            {{ event.started_at|date:"SHORT_DATE_FORMAT" }}
+            {% if not event.ended_at %}<span class="text-muted-foreground">({% translate 'all day' %})</span>{% endif %}
+          {% else %}
+            {{ event.started_at|date:"SHORT_DATETIME_FORMAT" }}
+            <span class="text-muted-foreground">({{ event.started_at|timesince }} {% translate 'ago' %})</span>
+          {% endif %}
+        </dd>
+        {% if event.ended_at %}
+          <dt>{% translate 'Ended' %}</dt>
+          <dd>{% if event.all_day %}{{ event.ended_at|date:"SHORT_DATE_FORMAT" }}{% else %}{{ event.ended_at|date:"SHORT_DATETIME_FORMAT" }}{% endif %}</dd>
+          <dt>{% translate 'Lasted' %}</dt>
+          <dd>{{ event.duration|duration_span }}</dd>
+        {% elif event.is_ongoing %}
+          <dt>{% translate 'So far' %}</dt>
+          <dd class="font-mono font-semibold text-(--live-ink)"
+              x-data="{ t: tlElapsed('{{ event.started_at|date:'c' }}') }"
+              x-init="setInterval(() => t = tlElapsed('{{ event.started_at|date:'c' }}'), 30000)"
+              x-text="t">{{ event.started_at|timesince }}</dd>
+        {% endif %}
+      </dl>
+
+      {% if event.tags.all %}
+        <div class="flex flex-wrap gap-1.5">
+          {% for tag in event.tags.all %}
+            <span class="chip chip--sm cursor-default" style="--tag: {{ tag.color }}"><span class="chip__dot"></span>#{{ tag.name }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="flex flex-wrap items-center gap-2">
+        {% if event.shape == 'ongoing' %}
+          <form hx-post="{% url 'event_stop' pk=event.id %}" hx-target="#generic-offcanvas">
+            <input type="hidden" name="from_drawer" value="1">
+            <button type="submit" class="btn" data-size="sm">
+              <i class="fa-solid fa-stop text-[0.65rem]"></i>{% translate 'End now' %}
+            </button>
+          </form>
+        {% endif %}
+        <button type="button" class="btn" data-variant="outline" data-size="sm"
+                @click="editing = true; $nextTick(() => $refs.titleInput.focus())">
+          <i class="fa-regular fa-pen-to-square text-[0.75rem]"></i>{% translate 'Edit' %}
+        </button>
+        <button type="button" class="btn ms-auto text-destructive hover:!bg-destructive/10" data-variant="ghost" data-size="sm"
+                hx-post="{% url 'event_delete' pk=event.id %}"
+                hx-confirm="{% translate 'Delete this event?' %}"
+                data-confirm-detail="{% translate 'Its fields and notes go with it. This cannot be undone.' %}"
+                data-confirm-text="{% translate 'Delete' %}"
+                hx-swap="none">
+          <i class="fa-regular fa-trash-can text-[0.75rem]"></i>{% translate 'Delete' %}
+        </button>
+      </div>
+
+      {# Fields: remove with ×, add or overwrite with key:value #}
+      <section class="pt-5 border-t border-border">
+        <h3 class="text-[0.8125rem] font-medium mb-2.5">{% translate 'Fields' %}</h3>
+        {% if event.data_points.all %}
+          <div class="tiles mb-2.5">
+            {% for dp in event.data_points.all %}
+              <div class="tile">
+                <div class="tile__key">{{ dp.key }}</div>
+                <div class="tile__val">{{ dp.value_text }}{% if dp.unit %}<span class="tile__unit">{{ dp.unit }}</span>{% endif %}</div>
+                <button type="button" class="tile__remove"
+                        hx-post="{% url 'event_field_delete' pk=event.id field_pk=dp.id %}"
+                        hx-target="#generic-offcanvas"
+                        aria-label="{% blocktranslate with key=dp.key %}Remove {{ key }}{% endblocktranslate %}">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <form hx-post="{% url 'event_field_add' pk=event.id %}" hx-target="#generic-offcanvas">
+          <div class="search !h-9 !rounded-[0.625rem]">
+            <input type="text" name="fields" required autocomplete="off" spellcheck="false"
+                   aria-label="{% translate 'Add a field' %}"
+                   class="!ps-3 !text-[0.8125rem]"
+                   placeholder="{% translate 'Add a field: weight:4.2kg (same name replaces it)' %}">
+            <button type="submit" class="btn me-1" data-variant="ghost" data-size="icon-sm" aria-label="{% translate 'Add field' %}">
+              <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {# Notes: free text, then the time-stamped entries as a small log #}
+      {% with notes=event.notes|note_entries %}
+        <section class="pt-5 border-t border-border">
+          <h3 class="text-[0.8125rem] font-medium mb-2.5">{% translate 'Notes' %}</h3>
+          {% if notes.body %}
+            <div class="prose prose-sm dark:prose-invert max-w-none text-[0.9375rem] leading-relaxed whitespace-pre-line mb-3">{{ notes.body|limited_markdown }}</div>
+          {% endif %}
+          {% if notes.entries %}
+            <ol class="note-log mb-3">
+              {% for entry in notes.entries %}
+                <li class="note-log__item">
+                  <time class="note-log__time" datetime="{{ entry.at|date:'c' }}" title="{{ entry.at|naturaltime }}">
+                    {{ entry.at|date:"SHORT_DATETIME_FORMAT" }}
+                  </time>
+                  <div class="note-log__text prose prose-sm dark:prose-invert max-w-none">{{ entry.text|limited_markdown }}</div>
+                </li>
+              {% endfor %}
+            </ol>
+          {% endif %}
+          <form hx-post="{% url 'event_append_note' pk=event.id %}"
+                hx-target="#generic-offcanvas">
+        <div class="search !h-10 !rounded-[0.625rem]">
+          <input type="text" name="note" required autocomplete="off"
+                 class="!ps-3 !font-sans !text-sm"
+                 aria-label="{% translate 'Add a note' %}"
+                 placeholder="{% translate 'Add a note, stamped with the time: mild headache' %}">
+          <button type="submit" class="btn me-1" data-variant="ghost" data-size="icon-sm" aria-label="{% translate 'Add note' %}">
+            <i class="fa-solid fa-arrow-turn-down rotate-90 text-xs"></i>
+          </button>
+        </div>
+      </form>
+        </section>
+      {% endwith %}
+
+      {% if event.children.all %}
+        <section class="pt-5 border-t border-border">
+          <h3 class="text-[0.8125rem] font-medium mb-2">{% translate 'Logged during this' %}</h3>
+          <div class="log" style="--time-col: 5.5rem; --node-col: 1.5rem">
+            <ol class="log__list">
+              {% for child in event.children.all %}
+                {% with tag=child.tags.all|first %}
+                  <li class="log__row !py-1.5" {% if tag %}style="--tag: {{ tag.color }}"{% endif %}>
+                    <time class="log__time !text-[0.6875rem]">{% if child.all_day %}{{ child.started_at|date:"j M" }}{% else %}{{ child.started_at|date:"j M H:i" }}{% endif %}</time>
+                    <div class="log__node-wrap"><span class="node !w-2.5 !h-2.5" data-shape="{{ child.shape }}"></span></div>
+                    <div class="log__body">
+                      <button type="button" class="log__title !text-sm !font-medium"
+                              hx-get="{% url 'event_detail' pk=child.id %}" hx-target="#generic-offcanvas">{{ child.title }}</button>
+                    </div>
+                    <span></span>
+                  </li>
+                {% endwith %}
+              {% endfor %}
+            </ol>
+          </div>
+        </section>
+      {% endif %}
+    </div>
+
+    {# Edit view #}
+    <form x-show="editing" x-cloak class="space-y-4"
+          _="install init_tom_select"
+          hx-post="{% url 'event_edit' pk=event.id %}"
+          hx-target="#generic-offcanvas">
+      <label class="grid gap-1.5 text-[0.8125rem] font-medium">
+        <span>{% translate 'Title' %}</span>
+        <input type="text" name="title" value="{{ event.title }}" required class="input w-full" x-ref="titleInput">
+      </label>
+      <div class="grid gap-1.5 text-[0.8125rem] font-medium">
+        <label for="edit-tags-{{ event.id }}">{% translate 'Tags' %}</label>
+        {# Tom Select: search existing tags, type to add a new one #}
+        <select id="edit-tags-{{ event.id }}" name="tags" multiple
+                data-create="true"
+                data-remove-button="true"
+                data-load="{% url 'tag_autocomplete' %}"
+                data-load-key="tags"
+                data-value-field="name"
+                data-label-field="name"
+                data-color-field="color"
+                data-preload="focus"
+                data-dropdown-parent="body"
+                data-txt-create="{% translate 'Add tag' %}"
+                data-txt-no-results="{% translate 'No matching tags' %}"
+                data-txt-remove="{% translate 'Remove' %}">
+          {% for tag in event.tags.all %}
+            <option value="{{ tag.name }}" data-data='{"name": "{{ tag.name|escapejs }}", "color": "{{ tag.color }}"}' selected>{{ tag.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {# day and time apart: leave the time empty for something that just happened on a day #}
+      <div class="grid gap-3"
+           x-data="{
+             startTime: '{% if not event.all_day %}{{ event.started_at|time:'H:i' }}{% endif %}',
+             endTime: '{% if event.ended_at and not event.all_day %}{{ event.ended_at|time:'H:i' }}{% endif %}',
+             badClock(v) { return !!v && !/^\d{2}:\d{2}$/.test(v) }
+           }">
+        <div class="grid gap-1.5 text-[0.8125rem] font-medium">
+          <span id="start-label-{{ event.id }}">{% translate 'Started' %}</span>
+          <div class="tl-when">
+            <input type="text" readonly class="input tl-when__day" aria-labelledby="start-label-{{ event.id }}"
+                   x-init="TlDatePicker($el, $refs.startDate)">
+            <input type="hidden" name="start_date" x-ref="startDate" value="{{ event.started_at|date:'Y-m-d' }}">
+            <input type="text" name="start_time" class="input tl-when__time" inputmode="numeric" autocomplete="off"
+                   aria-label="{% translate 'Start time' %}" placeholder="{% translate 'All day' %}"
+                   x-model="startTime" @blur="startTime = tlClock(startTime)" :aria-invalid="badClock(startTime)">
+          </div>
+        </div>
+        <div class="grid gap-1.5 text-[0.8125rem] font-medium">
+          <span id="end-label-{{ event.id }}">{% translate 'Ended' %} <span class="font-normal text-muted-foreground">{% translate '(optional)' %}</span></span>
+          <div class="tl-when">
+            <input type="text" readonly class="input tl-when__day" aria-labelledby="end-label-{{ event.id }}"
+                   placeholder="{% translate 'Pick a day' %}"
+                   x-init="TlDatePicker($el, $refs.endDate, { clearable: true })">
+            <input type="hidden" name="end_date" x-ref="endDate" value="{% if event.ended_at %}{{ event.ended_at|date:'Y-m-d' }}{% endif %}">
+            {# an all-day start makes the end all day too #}
+            <input type="text" name="end_time" class="input tl-when__time" inputmode="numeric" autocomplete="off"
+                   aria-label="{% translate 'End time' %}" :placeholder="startTime || '{% translate 'All day' %}'"
+                   :disabled="!startTime" x-model="endTime" @blur="endTime = tlClock(endTime)" :aria-invalid="badClock(endTime)">
+          </div>
+        </div>
+        <p class="text-xs text-muted-foreground">{% translate 'Leave the time empty when only the day matters.' %}</p>
+      </div>
+      <label class="flex items-center gap-2.5 text-sm cursor-pointer">
+        <input type="checkbox" name="is_ongoing" class="input" role="switch" {% if event.is_ongoing %}checked{% endif %}>
+        <span>{% translate 'Still running' %}</span>
+      </label>
+      <label class="grid gap-1.5 text-[0.8125rem] font-medium">
+        <span>{% translate 'Notes' %} <span class="font-normal text-muted-foreground">{% translate '(Markdown)' %}</span></span>
+        <textarea name="notes" rows="5" class="textarea w-full">{{ event.notes }}</textarea>
+      </label>
+
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" class="btn" data-variant="ghost" data-size="sm" @click="editing = false">{% translate 'Cancel' %}</button>
+        <button type="submit" class="btn" data-size="sm">{% translate 'Save changes' %}</button>
+      </div>
+    </form>
+  </div>
+</div>

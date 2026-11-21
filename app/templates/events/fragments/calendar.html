@@ -1,0 +1,88 @@
+{% load i18n %}
+
+{% include "events/fragments/tag_chips.html" %}
+<div class="mt-8" aria-live="polite">
+
+{% comment %}
+  Month grid. Each week is one CSS grid: row 1 holds the day numbers, then one row
+  per stacked multi-day bar, then the day's single-day events. The day cells span
+  the whole week behind everything, so a click on empty space logs on that day.
+{% endcomment %}
+<div class="cal"
+     x-data="{
+       logOn(day) {
+         window.dispatchEvent(new CustomEvent('open-quick-log', { detail: { date: day, tags: [] } }));
+       },
+       openEvent(id) {
+         htmx.ajax('GET', '{% url 'event_detail' pk=0 %}'.replace('/0/', '/' + id + '/'), { target: '#generic-offcanvas' });
+       }
+     }">
+  <div class="cal__head" aria-hidden="true">
+    {% for weekday in calendar.weekdays %}
+      <div>{{ weekday|date:"D" }}</div>
+    {% endfor %}
+  </div>
+
+  {% for week in calendar.weeks %}
+    <div class="cal__week"
+         style="grid-template-rows: 2rem{% if week.rows %} repeat({{ week.rows }}, 1.5rem){% endif %} minmax(4.25rem, auto)">
+      {% for day in week.days %}
+        <div class="cal__day{% if not day.in_month %} is-out{% endif %}{% if day.is_today %} is-today{% endif %}"
+             style="grid-column: {{ forloop.counter }}"
+             @click="logOn('{{ day.date|date:'Y-m-d' }}')"
+             title="{% translate 'Log something on this day' %}">
+          <span class="cal__num">{{ day.date|date:"j" }}</span>
+          <i class="cal__add fa-solid fa-plus" aria-hidden="true"></i>
+        </div>
+      {% endfor %}
+
+      {% for bar in week.bars %}
+        <button type="button" class="cal__bar{% if bar.cut_left %} cut-left{% endif %}{% if bar.cut_right %} cut-right{% endif %}"
+                style="grid-column: {{ bar.col_start|add:1 }} / {{ bar.col_end|add:2 }}; grid-row: {{ bar.row|add:2 }};{% if bar.color %} --tag: {{ bar.color }};{% endif %}"
+                {% if bar.is_ongoing %}data-ongoing="true"{% endif %}
+                title="{{ bar.title }}"
+                @click="openEvent({{ bar.id }})">
+          <span>{{ bar.title }}</span>
+        </button>
+      {% endfor %}
+
+      {% for day in week.days %}
+        {% if day.points %}
+          <ul class="cal__points" style="grid-column: {{ forloop.counter }}; grid-row: {{ week.rows|add:2 }}" x-data="{ all: false }">
+            {% for item in day.points %}
+              <li x-show="all || {{ forloop.counter0 }} < 3">
+                <button type="button" class="cal__point" {% if item.color %}style="--tag: {{ item.color }}"{% endif %}
+                        title="{{ item.time }} {{ item.title }}"
+                        @click="openEvent({{ item.id }})">
+                  <span class="cal__dot"></span>
+                  <span class="cal__time">{{ item.time }}</span>
+                  <span class="cal__title">{{ item.title }}</span>
+                </button>
+              </li>
+            {% endfor %}
+            {% if day.points|length > 3 %}
+              <li x-show="!all">
+                <button type="button" class="cal__more" @click="all = true">
+                  {% blocktranslate count counter=day.points|length|add:"-3" trimmed %}
+                    +{{ counter }} more
+                  {% plural %}
+                    +{{ counter }} more
+                  {% endblocktranslate %}
+                </button>
+              </li>
+            {% endif %}
+          </ul>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+
+{% if not calendar.total_events %}
+  <p class="mt-4 text-center text-sm text-muted-foreground">
+    {% if q %}{% translate 'Nothing this month matches that search.' %}{% else %}{% translate 'Nothing logged this month. Click a day to add something.' %}{% endif %}
+  </p>
+{% endif %}
+{# on Lanes and Calendar the grid comes first #}
+{% include "events/fragments/running.html" with at_bottom=True %}
+</div>

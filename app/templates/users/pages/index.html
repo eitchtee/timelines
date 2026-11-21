@@ -1,0 +1,10 @@
+{% extends "layouts/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate 'Users' %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+  <div hx-get="{% url 'users_list' %}" hx-trigger="load, updated from:window" class="show-loading"></div>
+</div>
+{% endblock %}

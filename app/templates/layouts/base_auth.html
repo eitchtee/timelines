@@ -1,0 +1,30 @@
+{% load i18n %}
+{% load title %}
+{% load pwa %}
+{% get_current_language as LANGUAGE_CODE %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" class="{% if request.session.theme != 'light' %}dark{% endif %}">
+
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>
+    {% filter site_title %}
+      {% block title %}{% endblock title %}
+    {% endfilter %}
+  </title>
+  {% include 'includes/head/favicons.html' %}
+  {% progressive_web_app_meta %}
+  {% block extra_styles %}{% endblock %}
+</head>
+
+<body>
+<div id="content">
+  {% block content %}{% endblock %}
+</div>
+
+{% include 'includes/scripts.html' %}
+{% block extra_js %}{% endblock %}
+</body>
+
+</html>

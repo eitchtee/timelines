@@ -1,0 +1,2416 @@
+/* ==========================================================================
+   Timelines design layer
+   Quiet, neutral chrome so user tag colours carry the colour; one accent
+   (--live, amber) reserved for "now" and anything still running.
+   ========================================================================== */
+
+:root {
+    --radius: 0.75rem;
+    --background: #f4f5f7;
+    --foreground: #151920;
+    --card: #ffffff;
+    --card-foreground: #151920;
+    --popover: #ffffff;
+    --popover-foreground: #151920;
+    --primary: #151920;
+    --primary-foreground: #ffffff;
+    --secondary: #eceef2;
+    --secondary-foreground: #151920;
+    --muted: #eceef2;
+    --muted-foreground: #626a78;
+    --accent: #e8eaee;
+    --accent-foreground: #151920;
+    --border: #e0e3e8;
+    --input: #d6dae1;
+    --ring: #9aa3b2;
+    --sidebar: #fbfbfc;
+    --sidebar-foreground: #151920;
+    --sidebar-border: #e0e3e8;
+    --sidebar-accent: #eceef2;
+
+    --live: #e08600;
+    --live-ink: #9a5b00; /* amber text that passes contrast on white */
+    --live-soft: color-mix(in oklab, var(--live) 12%, transparent);
+
+    --spine: #d3d7de;
+    --shadow-float: 0 1px 2px rgb(16 20 28 / 0.06), 0 8px 24px -6px rgb(16 20 28 / 0.14);
+    --shadow-modal: 0 2px 6px rgb(16 20 28 / 0.08), 0 24px 64px -12px rgb(16 20 28 / 0.28);
+
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.dark {
+    --background: #0e1014;
+    --foreground: #e6e8ec;
+    --card: #15181e;
+    --card-foreground: #e6e8ec;
+    --popover: #1a1e25;
+    --popover-foreground: #e6e8ec;
+    --primary: #e6e8ec;
+    --primary-foreground: #0e1014;
+    --secondary: #1e222a;
+    --secondary-foreground: #e6e8ec;
+    --muted: #1b1f26;
+    --muted-foreground: #8c94a3;
+    --accent: #222731;
+    --accent-foreground: #e6e8ec;
+    --border: #252a34;
+    --input: #2c323d;
+    --ring: #566072;
+    --sidebar: #111318;
+    --sidebar-foreground: #e6e8ec;
+    --sidebar-border: #22262f;
+    --sidebar-accent: #1e222a;
+
+    --live: #f5a524;
+    --live-ink: #f5b54a;
+    --spine: #2c313b;
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -6px rgb(0 0 0 / 0.6);
+    --shadow-modal: 0 2px 6px rgb(0 0 0 / 0.4), 0 24px 64px -12px rgb(0 0 0 / 0.75);
+}
+
+/* --------------------------------------------------------------- base */
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+}
+
+.tabular {
+    font-variant-numeric: tabular-nums;
+}
+
+kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font: 500 0.6875rem/1 var(--font-mono);
+}
+
+/* Pressables answer the press. */
+.btn,
+.press {
+    transition: transform 140ms var(--ease-out), background-color 150ms ease, color 150ms ease,
+    border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.btn:active:not(:disabled),
+.press:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+/* crispy forms: label sits right on top of its input */
+.fieldset {
+    display: grid;
+    gap: 0.375rem;
+    padding: 0;
+    margin-bottom: 0.875rem;
+}
+
+.fieldset-legend {
+    padding: 0;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    color: var(--foreground);
+}
+
+/* ------------------------------------------------------ section heading */
+
+.tl-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+}
+
+/* ---------------------------------------------------------- live dot */
+
+.live-dot {
+    position: relative;
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--live);
+    flex-shrink: 0;
+}
+
+.live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--live);
+    animation: live-ping 2.4s var(--ease-out) infinite;
+}
+
+@keyframes live-ping {
+    0% { transform: scale(1); opacity: 0.55; }
+    70%, 100% { transform: scale(2.8); opacity: 0; }
+}
+
+/* ------------------------------------------------- segmented control */
+
+.seg {
+    position: relative;
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 0.625rem;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    isolation: isolate;
+}
+
+.seg__btn {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 1.875rem;
+    padding: 0 0.75rem;
+    border-radius: 0.45rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 150ms ease;
+}
+
+.seg__btn:hover,
+.seg__btn[aria-pressed="true"] {
+    color: var(--foreground);
+}
+
+.seg__btn:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
+.seg__pill {
+    position: absolute;
+    z-index: 0;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    width: var(--seg-w, 0);
+    transform: translateX(var(--seg-x, 0));
+    border-radius: 0.45rem;
+    background: var(--card);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px var(--border);
+    transition: transform 260ms var(--ease-out), width 260ms var(--ease-out);
+}
+
+.seg[data-ready="false"] .seg__pill {
+    transition: none;
+}
+
+
+/* ------------------------------------------------------------ chips */
+
+.chip {
+    --tag: var(--muted-foreground);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 1.625rem;
+    padding: 0 0.625rem 0 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--foreground);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 140ms var(--ease-out), background-color 150ms ease, border-color 150ms ease;
+}
+
+.chip:active {
+    transform: scale(0.96);
+}
+
+.chip__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--tag);
+    flex-shrink: 0;
+}
+
+.chip__count {
+    font: 500 0.6875rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.chip[aria-pressed="true"] {
+    background: color-mix(in oklab, var(--tag) 16%, var(--card));
+    border-color: color-mix(in oklab, var(--tag) 55%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .chip:hover {
+        border-color: color-mix(in oklab, var(--tag) 45%, var(--border));
+    }
+}
+
+.chip--sm {
+    height: 1.375rem;
+    padding: 0 0.5rem 0 0.4rem;
+    font-size: 0.75rem;
+    gap: 0.3rem;
+}
+
+.chip--sm .chip__dot {
+    width: 0.4rem;
+    height: 0.4rem;
+}
+
+/* key:value data — literal syntax, so it stays monospaced */
+.datum {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    height: 1.375rem;
+    padding: 0 0.45rem;
+    border-radius: 0.375rem;
+    background: var(--muted);
+    font: 400 0.71875rem/1.375rem var(--font-mono);
+    color: var(--muted-foreground);
+    white-space: nowrap;
+}
+
+.datum b {
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+/* --------------------------------------------------------- search box */
+
+.search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 3rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.search:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent);
+}
+
+.search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 0.5rem;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font: 400 0.875rem var(--font-mono);
+    color: var(--foreground);
+}
+
+.search input::placeholder {
+    color: var(--muted-foreground);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+}
+
+.search input::-webkit-search-cancel-button {
+    display: none;
+}
+
+/* ------------------------------------------------------- running now */
+
+.running {
+    display: flex;
+    gap: 0.625rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px;
+    margin: -2px;
+}
+
+.running::-webkit-scrollbar {
+    display: none;
+}
+
+.running__card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 15rem;
+    padding: 0.625rem 0.625rem 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    border: 1px solid color-mix(in oklab, var(--live) 30%, var(--border));
+    background: linear-gradient(100deg, var(--live-soft), transparent 70%), var(--card);
+    flex-shrink: 0;
+}
+
+.running__title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+}
+
+.running__title::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.running__elapsed {
+    font: 500 0.75rem var(--font-mono);
+    color: var(--live-ink);
+}
+
+.running__card .btn {
+    position: relative;
+    z-index: 1;
+    margin-left: auto;
+}
+
+/* ===================================================================
+   Feed: the log is drawn as an actual timeline. Days are headings,
+   times sit in a mono gutter, a spine runs through every node.
+   =================================================================== */
+
+.log {
+    --time-col: 3.25rem;
+    --node-col: 1.75rem;
+}
+
+.log__day + .log__day {
+    margin-top: 1.75rem;
+}
+
+.log__day-label {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    padding: 0.625rem 0 0.5rem calc(var(--time-col) + var(--node-col));
+    background: linear-gradient(var(--background) 75%, transparent);
+    font-size: 1.0625rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+@media (max-width: 1023px) {
+    .log__day-label {
+        top: 3.5rem; /* below the sticky mobile navbar */
+    }
+}
+
+.log__day-count {
+    font: 500 0.75rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.log__list {
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* the spine */
+.log__list::before {
+    content: "";
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    left: calc(var(--time-col) + var(--node-col) / 2 - 1px);
+    width: 2px;
+    border-radius: 2px;
+    background: var(--spine);
+    transform-origin: top;
+}
+
+.log__row {
+    --tag: var(--muted-foreground);
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--time-col) var(--node-col) minmax(0, 1fr) auto;
+    align-items: start;
+    padding: 0.625rem 0.5rem 0.625rem 0;
+    border-radius: 0.875rem;
+    transition: background-color 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .log__row:hover {
+        background: color-mix(in oklab, var(--card) 70%, transparent);
+    }
+}
+
+.log__row:has(.log__title:focus-visible) {
+    background: var(--card);
+    box-shadow: 0 0 0 2px var(--ring);
+}
+
+.log__time {
+    padding-top: 0.2rem;
+    text-align: right;
+    font: 500 0.75rem var(--font-mono);
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+}
+
+.log__allday {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+}
+
+.log__node-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 0.3rem;
+}
+
+/* node shape follows event shape */
+.node {
+    position: relative;
+    z-index: 1;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: var(--tag);
+    box-shadow: 0 0 0 3px var(--background);
+}
+
+.log__row:hover .node {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--card) 70%, var(--background));
+}
+
+.node[data-shape="span"] {
+    width: 0.625rem;
+    height: 1.375rem;
+    margin-top: -0.3rem;
+    background: color-mix(in oklab, var(--tag) 35%, var(--card));
+    border: 2px solid var(--tag);
+}
+
+.node[data-shape="ongoing"] {
+    background: var(--card);
+    border: 2.5px solid var(--live);
+}
+
+.node[data-shape="ongoing"]::after {
+    content: "";
+    position: absolute;
+    inset: -2.5px;
+    border-radius: inherit;
+    border: 2px solid var(--live);
+    animation: live-ping 2.4s var(--ease-out) infinite;
+}
+
+.log__body {
+    min-width: 0;
+    padding-left: 0.5rem;
+}
+
+.log__title {
+    display: block;
+    max-width: 100%;
+    text-align: left;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    outline: none;
+    overflow-wrap: anywhere;
+}
+
+/* the title's hit area covers the whole row */
+.log__title::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.log__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+}
+
+.log__notes {
+    margin-top: 0.375rem;
+    max-width: 65ch;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-line;
+}
+
+.log__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+}
+
+/* anything interactive inside a row sits above the stretched title */
+.log__chips > *,
+.log__actions,
+.log__meta button {
+    position: relative;
+    z-index: 2;
+}
+
+.log__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding-left: 0.5rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .log__actions .reveal {
+        opacity: 0;
+        transition: opacity 120ms ease;
+    }
+
+    .log__row:hover .log__actions .reveal,
+    .log__row:focus-within .log__actions .reveal,
+    .log__actions .reveal[aria-expanded="true"] {
+        opacity: 1;
+    }
+}
+
+/* freshly logged event: a single amber wash that fades out */
+.log__row.is-new {
+    animation: just-logged 2.2s var(--ease-out);
+}
+
+@keyframes just-logged {
+    0%, 20% { background: color-mix(in oklab, var(--live) 18%, transparent); }
+    100% { background: transparent; }
+}
+
+/* ------------------------------------------- menus (row ⋯, account) */
+
+.menu {
+    position: absolute;
+    z-index: 60;
+    min-width: 11rem;
+    padding: 0.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-float);
+    font-size: 0.8125rem;
+}
+
+.menu__item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.5rem;
+    text-align: left;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.menu__item i {
+    width: 1rem;
+    text-align: center;
+    color: var(--muted-foreground);
+}
+
+.menu__item:hover,
+.menu__item:focus-visible {
+    background: var(--accent);
+    outline: none;
+}
+
+.menu__item--danger,
+.menu__item--danger i {
+    color: var(--destructive);
+}
+
+.menu__item--danger:hover {
+    background: color-mix(in oklab, var(--destructive) 12%, transparent);
+}
+
+.menu__sep {
+    height: 1px;
+    margin: 0.25rem 0.375rem;
+    background: var(--border);
+}
+
+/* Alpine x-transition classes for popovers: scale from the trigger corner */
+.pop-enter { transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
+.pop-leave { transition: opacity 100ms ease, transform 100ms ease; }
+.pop-from { opacity: 0; transform: scale(0.96); }
+.pop-to { opacity: 1; transform: scale(1); }
+
+/* ===================================================================
+   Lanes: editing-timeline view. Fixed lane labels on the left, a
+   horizontally scrolling strip of day columns on the right.
+   =================================================================== */
+
+.nle {
+    --label-w: 13rem;
+    --ruler-h: 3rem;
+    --lane-h: 3.25rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    overflow: hidden;
+}
+
+@media (max-width: 639px) {
+    .nle {
+        --label-w: 7.5rem;
+    }
+}
+
+.nle__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+/* One horizontal scroller holds everything; labels stick to its left edge */
+.nle__viewport {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    scrollbar-width: thin;
+}
+
+.nle__viewport.is-dragging {
+    cursor: grabbing;
+}
+
+.nle__row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.nle__rows > .nle__row:last-child {
+    border-bottom: 0;
+}
+
+.nle__corner,
+.nle__label {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    flex: none;
+    width: var(--label-w);
+    background: var(--card);
+    border-right: 1px solid var(--border);
+}
+
+/* once the strip scrolls, a soft edge shows the timeline continues under the labels */
+.nle__corner,
+.nle__label {
+    transition: box-shadow 150ms ease, background-color 120ms ease;
+}
+
+.nle__viewport.is-scrolled .nle__corner,
+.nle__viewport.is-scrolled .nle__label {
+    box-shadow: 6px 0 10px -6px rgb(16 20 28 / 0.18);
+}
+
+.dark .nle__viewport.is-scrolled .nle__corner,
+.dark .nle__viewport.is-scrolled .nle__label {
+    box-shadow: 6px 0 12px -6px rgb(0 0 0 / 0.6);
+}
+
+.nle__label {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.125rem;
+    min-width: 0;
+    padding: 0.5rem 0.75rem 0.5rem 1rem;
+    cursor: default;
+    transition: background-color 120ms ease;
+}
+
+.nle__rows {
+    position: relative;
+}
+
+/* grid, today, hovered day and now: one layer across all lanes, under the events */
+.nle__overlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--label-w);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.nle__gridline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+.nle__gridline.is-month {
+    background: var(--border);
+}
+
+/* the label opens the lane's page */
+.nle__label.lane__link {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.lane__link:hover > :first-child,
+.lane__link:focus-visible > :first-child {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+
+.lane__link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+}
+
+/* archived lanes, when shown, recede */
+.nle__row.is-archived > .nle__lane {
+    opacity: 0.45;
+    filter: grayscale(0.6);
+}
+
+.nle__row.is-archived > .nle__label > :first-child {
+    color: var(--muted-foreground);
+}
+
+.lane__shelved {
+    display: inline-block;
+    margin-right: 0.25rem;
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    background: var(--muted);
+    font-family: var(--font-sans);
+    font-weight: 500;
+}
+
+.lane__stats {
+    font: 400 0.6875rem/1.4 var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.lane__stats b {
+    color: var(--foreground);
+    font-weight: 600;
+}
+
+.nle__ruler {
+    position: relative;
+    flex: none;
+    height: var(--ruler-h);
+}
+
+.nle__month {
+    position: absolute;
+    top: 0.35rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.1;
+}
+
+.nle__day {
+    position: absolute;
+    bottom: 0.3rem;
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 0.25rem;
+    font: 400 0.625rem var(--font-mono);
+    color: var(--muted-foreground);
+    text-transform: lowercase;
+}
+
+.nle__day b {
+    font-size: 0.6875rem;
+    font-weight: 500;
+}
+
+.nle__day.is-weekend {
+    opacity: 0.6;
+}
+
+.nle__day.is-today b {
+    padding: 0 0.3rem;
+    border-radius: 0.3rem;
+    background: var(--live);
+    color: #1b1200;
+    font-weight: 700;
+}
+
+.nle__lane {
+    position: relative;
+    flex: none;
+    min-height: var(--lane-h);
+}
+
+/* the lane under the cursor, label and row together */
+.nle__row.is-hover > .nle__lane,
+.nle__row.is-hover > .nle__label {
+    background: color-mix(in oklab, var(--tag) 8%, var(--card));
+}
+
+.nle__row.is-hover > .nle__label {
+    box-shadow: inset 3px 0 0 var(--tag);
+}
+
+.nle__viewport.is-scrolled .nle__row.is-hover > .nle__label {
+    box-shadow: inset 3px 0 0 var(--tag), 6px 0 10px -6px rgb(16 20 28 / 0.18);
+}
+
+/* the exact day a click would log into */
+.nle__cell {
+    position: absolute;
+    top: 0.3rem;
+    bottom: 0.3rem;
+    display: grid;
+    place-items: center;
+    border: 1.5px dashed var(--tag);
+    border-radius: 0.4rem;
+    background: color-mix(in oklab, var(--tag) 14%, var(--card));
+    color: var(--tag);
+    font-size: 0.7rem;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* faint centre line so a sparse lane still reads as a track */
+.nle__lane::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: color-mix(in oklab, var(--tag) 30%, transparent);
+}
+
+.nle__today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--live-soft);
+    pointer-events: none;
+}
+
+.nle__hovercol {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: color-mix(in oklab, var(--foreground) 6%, transparent);
+    box-shadow: inset 1px 0 0 color-mix(in oklab, var(--foreground) 15%, transparent),
+    inset -1px 0 0 color-mix(in oklab, var(--foreground) 15%, transparent);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.nle__now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--live);
+    pointer-events: none;
+    z-index: 3;
+}
+
+.nle__dot {
+    position: absolute;
+    top: 50%;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin: -0.4375rem 0 0 -0.4375rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px var(--card);
+    cursor: pointer;
+    z-index: 2;
+    transition: transform 150ms var(--ease-out);
+}
+
+.nle__dot:hover,
+.nle__dot:focus-visible {
+    transform: scale(1.35);
+    outline: none;
+    z-index: 4;
+}
+
+/* thin, like the dots, so most of the lane stays free to click for a new event */
+.nle__bar {
+    position: absolute;
+    top: 50%;
+    height: 0.875rem;
+    margin-top: -0.4375rem;
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--tag) 30%, var(--card));
+    border: 1.5px solid var(--tag);
+    box-shadow: 0 0 0 2px var(--card);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: calc(0.875rem - 3px);
+    text-align: left;
+    white-space: nowrap;
+    overflow: clip;  /* not hidden: that would trap the sticky title inside the bar */
+    text-overflow: ellipsis;
+    cursor: pointer;
+    z-index: 2;
+    transition: filter 150ms ease, transform 150ms var(--ease-out);
+}
+
+/* titles of long bars stay readable just right of the sticky labels */
+.nle__bar span {
+    position: sticky;
+    left: calc(var(--label-w) + 0.375rem);
+}
+
+.nle__bar:hover,
+.nle__bar:focus-visible {
+    filter: brightness(1.08);
+    transform: scaleY(1.25);
+    outline: none;
+    z-index: 4;
+}
+
+/* still running: open-ended on the right */
+.nle__bar[data-ongoing="true"] {
+    border-right-style: dashed;
+    border-radius: 999px 0.2rem 0.2rem 999px;
+}
+
+.nle__card {
+    position: fixed;
+    z-index: 70;
+    padding: 0.75rem 0.875rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-float);
+    pointer-events: none;
+}
+
+/* ===================================================================
+   Calendar: one CSS grid per week. Day cells fill the whole week behind
+   the bars (multi-day events) and points (single-day events).
+   =================================================================== */
+
+.cal {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    overflow: hidden;
+}
+
+.cal__head,
+.cal__week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal__head {
+    border-bottom: 1px solid var(--border);
+}
+
+.cal__head > div {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-transform: capitalize;
+}
+
+.cal__week {
+    position: relative;
+    row-gap: 2px;
+    padding-bottom: 0.375rem;
+}
+
+.cal__week + .cal__week {
+    border-top: 1px solid var(--border);
+}
+
+.cal__day {
+    grid-row: 1 / -1;
+    position: relative;
+    padding: 0.375rem 0.5rem;
+    border-left: 1px solid var(--border);
+    margin-bottom: -0.375rem;  /* reach under the week's bottom padding */
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.cal__day:first-child {
+    border-left: 0;
+}
+
+.cal__day.is-out {
+    background: color-mix(in oklab, var(--muted) 45%, transparent);
+}
+
+.cal__day.is-out .cal__num {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .cal__day:hover {
+        background: color-mix(in oklab, var(--foreground) 4%, transparent);
+    }
+
+    .cal__day:hover .cal__add {
+        opacity: 1;
+    }
+}
+
+.cal__num {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cal__day.is-today .cal__num {
+    background: var(--live);
+    color: #1b1200;
+}
+
+.cal__add {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    font-size: 0.65rem;
+    color: var(--muted-foreground);
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+/* multi-day events: one continuous bar; squared ends where it runs into the next week */
+.cal__bar {
+    --tag: var(--muted-foreground);
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    margin: 0 0.25rem;
+    padding: 0 0.5rem;
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, var(--tag) 22%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--tag) 60%, transparent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: calc(1.5rem - 2px);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: filter 150ms ease;
+}
+
+.cal__bar:hover {
+    filter: brightness(1.06);
+}
+
+.cal__bar.cut-left {
+    margin-left: 0;
+    border-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.cal__bar.cut-right {
+    margin-right: 0;
+    border-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.cal__bar[data-ongoing="true"]:not(.cut-right) {
+    border-right-style: dashed;
+}
+
+/* single-day events listed in their day */
+.cal__points {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0.25rem;
+    list-style: none;
+    pointer-events: none;  /* empty space still reaches the day underneath */
+}
+
+.cal__points button {
+    pointer-events: auto;
+}
+
+.cal__point {
+    --tag: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.125rem 0.3rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cal__point:hover {
+    background: color-mix(in oklab, var(--tag) 14%, transparent);
+}
+
+.cal__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 999px;
+    background: var(--tag);
+}
+
+.cal__time {
+    flex: none;
+    font: 500 0.6875rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.cal__title {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.cal__more {
+    padding: 0.125rem 0.3rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    cursor: pointer;
+}
+
+.cal__more:hover {
+    color: var(--foreground);
+}
+
+/* phones: dots only, the drawer has the details */
+@media (max-width: 639px) {
+    .cal__time,
+    .cal__title {
+        display: none;
+    }
+
+    .cal__points {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 0.125rem;
+    }
+
+    .cal__point {
+        width: auto;
+        padding: 0.25rem;
+    }
+
+    .cal__add {
+        display: none;
+    }
+}
+
+/* ===================================================================
+   Overlays: quick log (palette) and detail drawer
+   =================================================================== */
+
+.scrim {
+    position: fixed;
+    inset: 0;
+    background: rgb(8 10 14 / 0.45);
+    backdrop-filter: blur(3px);
+}
+
+.scrim-enter { transition: opacity 200ms var(--ease-out); }
+.scrim-leave { transition: opacity 150ms ease; }
+.fade-from { opacity: 0; }
+.fade-to { opacity: 1; }
+
+/* palette: opens fast, closes faster; keyboard opens skip motion entirely */
+.palette-enter { transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.palette-leave { transition: opacity 120ms ease, transform 120ms ease; }
+.palette-from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+.palette-to { opacity: 1; transform: none; }
+
+@media (max-width: 639px) {
+    .palette-from { transform: translateY(24px); }
+}
+
+[data-instant] .palette-enter,
+[data-instant] .scrim-enter {
+    transition: none;
+}
+
+.palette {
+    width: 100%;
+    max-width: 40rem;
+    max-height: calc(100dvh - 2rem);
+    display: flex;
+    flex-direction: column;
+    border-radius: 1.125rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+}
+
+.palette__input {
+    width: 100%;
+    height: 3.75rem;
+    padding: 0 1.25rem;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font-size: 1.1875rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+}
+
+.palette__input::placeholder {
+    color: var(--muted-foreground);
+    font-weight: 400;
+}
+
+
+.palette__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem 0.625rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: color-mix(in oklab, var(--muted) 50%, var(--popover));
+}
+
+/* height collapse without measuring: animate the grid row from 0fr to 1fr */
+.grid-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 240ms var(--ease-out);
+}
+
+.grid-collapse[data-open] {
+    grid-template-rows: 1fr;
+}
+
+.grid-collapse > * {
+    min-height: 0;
+    overflow: hidden;
+    transition: padding 240ms var(--ease-out), border-color 240ms ease;
+}
+
+.grid-collapse:not([data-open]) > * {
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-color: transparent;
+}
+
+/* Tom Select, matched to the basecoat .input look */
+.ts-wrapper .ts-control {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.375rem;
+    gap: 0.25rem;
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) - 2px);
+    background: transparent;
+    color: var(--foreground);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+/* the chevron is for single selects; a multi select is a field you type into */
+.ts-wrapper.multi .ts-control {
+    background-image: none;
+    padding-right: 0.375rem;
+}
+
+/* basecoat's .item padding would make the single select twice as tall as an input */
+.ts-wrapper.single .ts-control > .item {
+    padding: 0 0.375rem;
+    min-height: 0;
+}
+
+.ts-wrapper.focus .ts-control {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 35%, transparent);
+}
+
+/* basecoat ships an .item component (flex, full width): keep Tom Select's items chip-sized */
+.ts-wrapper.multi .ts-control > .item {
+    display: inline-flex !important;
+    width: auto;
+    flex: none;
+    border-style: solid;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.5rem;
+    margin: 0;
+    padding: 0 0.15rem 0 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.ts-wrapper.multi .ts-control > .item.active {
+    border-color: var(--ring);
+    background: var(--accent);
+}
+
+.ts-wrapper.plugin-remove_button .item .remove {
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 0.3rem !important;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+}
+
+.ts-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.4rem;
+    border-radius: 999px;
+    vertical-align: 0.05em;
+}
+
+.ts-wrapper.multi .ts-control > .item .ts-dot {
+    margin-right: 0.1rem;
+}
+
+/* rendered in <body> so the drawer's scroll area can't clip it */
+body > .ts-dropdown {
+    z-index: 1150;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-float);
+    font-size: 0.875rem;
+    overflow: hidden;
+}
+
+body > .ts-dropdown .option,
+body > .ts-dropdown .create,
+body > .ts-dropdown .no-results {
+    padding: 0.45rem 0.75rem;
+}
+
+body > .ts-dropdown .active {
+    background: var(--accent);
+    color: var(--accent-foreground);
+}
+
+/* tag suggestions under the quick-log input */
+.tl-suggest {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 2.125rem;
+    padding: 0 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tl-suggest[aria-selected="true"] {
+    background: var(--accent);
+}
+
+.tl-suggest[data-inert] {
+    cursor: default;
+}
+
+.tl-suggest[data-inert][aria-selected="true"] {
+    background: transparent;
+}
+
+/* the search box's dropdown floats over the page */
+.tl-suggest-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    padding: 0.25rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-float);
+}
+
+.tl-suggest kbd {
+    height: 1.125rem;
+    font-size: 0.625rem;
+}
+
+/* Quick log badge row: what was understood, plus shortcuts to add more */
+.qc-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 1.25rem 0.875rem;
+}
+
+/* "add" shortcuts read as quieter than real values */
+.chip.qc-ghost {
+    border-style: dashed;
+    background: transparent;
+    color: var(--muted-foreground);
+}
+
+.chip.qc-ghost:hover,
+.chip.qc-ghost[aria-pressed="true"] {
+    color: var(--foreground);
+    border-style: solid;
+}
+
+.chip.qc-ghost i {
+    font-size: 0.65rem;
+}
+
+.chip.qc-warn {
+    border-color: var(--live);
+    background: color-mix(in oklab, var(--live) 14%, var(--card));
+}
+
+.qc-x {
+    display: grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    margin-right: -0.25rem;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 0.6rem;
+    cursor: pointer;
+}
+
+.qc-x:hover {
+    background: var(--accent);
+    color: var(--foreground);
+}
+
+/* the Running switch sits in a chip so it reads as one of the badges */
+.chip.qc-switch {
+    cursor: pointer;
+    padding-left: 0.25rem;
+}
+
+.chip.qc-switch input[role="switch"] {
+    transform: scale(0.75);
+    margin: 0 -0.2rem;
+}
+
+.chip.qc-switch[aria-pressed="true"] {
+    border-color: color-mix(in oklab, var(--live) 55%, transparent);
+    background: color-mix(in oklab, var(--live) 14%, var(--card));
+}
+
+.qc-notes {
+    display: block;
+    width: 100%;
+    min-height: 4.5rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+}
+
+.qc-notes:focus {
+    border-color: var(--ring);
+    background: var(--popover);
+}
+
+/* parsed-token chips appear as you type */
+.token-in {
+    animation: token-in 160ms var(--ease-out);
+}
+
+@keyframes token-in {
+    from { opacity: 0; transform: translateY(3px) scale(0.96); }
+}
+
+/* drawer: iOS sheet curve on the way in, quick on the way out */
+.drawer-enter { transition: transform 420ms var(--ease-drawer); }
+.drawer-leave { transition: transform 220ms var(--ease-out); }
+.drawer-from { transform: translateX(100%); }
+.drawer-to { transform: translateX(0); }
+
+@media (max-width: 639px) {
+    .drawer-from { transform: translateY(100%); }
+    .drawer-to { transform: translateY(0); }
+}
+
+.tl-drawer {
+    position: fixed;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    color: var(--card-foreground);
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+    inset: auto 0 0 0;
+    max-height: 92dvh;
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-top: 1px solid var(--border);
+}
+
+@media (min-width: 640px) {
+    .tl-drawer {
+        inset: 0.5rem 0.5rem 0.5rem auto;
+        width: min(32rem, calc(100vw - 1rem));
+        max-height: none;
+        border-radius: 1.125rem;
+        border: 1px solid var(--border);
+    }
+}
+
+/* new drawer content (e.g. jumping to a linked event) crossfades in */
+#generic-offcanvas > * {
+    animation: content-in 220ms var(--ease-out);
+}
+
+@keyframes content-in {
+    from { opacity: 0; transform: translateY(4px); }
+}
+
+.facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+}
+
+.facts dt {
+    color: var(--muted-foreground);
+}
+
+.facts dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: 0.5rem;
+}
+
+.tile {
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
+    background: var(--muted);
+}
+
+.tile {
+    position: relative;
+}
+
+/* quick remove: always reachable on touch, revealed on hover with a pointer */
+.tile__remove {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    display: grid;
+    place-items: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    cursor: pointer;
+    transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease, transform 140ms var(--ease-out);
+}
+
+.tile__remove:hover,
+.tile__remove:focus-visible {
+    background: color-mix(in oklab, var(--destructive) 14%, transparent);
+    color: var(--destructive);
+    outline: none;
+}
+
+.tile__remove:active {
+    transform: scale(0.9);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .tile__remove {
+        opacity: 0;
+    }
+
+    .tile:hover .tile__remove,
+    .tile__remove:focus-visible {
+        opacity: 1;
+    }
+}
+
+.tile__key {
+    font: 400 0.6875rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.tile__val {
+    margin-top: 0.125rem;
+    font: 600 1.125rem/1.2 var(--font-mono);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.tile__unit {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+    margin-left: 0.125rem;
+}
+
+/* stamped notes: a small log, time on the left in the user's date format */
+.note-log {
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* connector from each entry's dot down to the next one */
+.note-log__item:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.3rem;
+    bottom: -0.45rem;
+    left: 0.3rem;
+    width: 1.5px;
+    background: var(--spine);
+}
+
+.note-log__item {
+    position: relative;
+    padding: 0.25rem 0 0.625rem 1.25rem;
+}
+
+.note-log__item::before {
+    content: "";
+    position: absolute;
+    top: 0.55rem;
+    left: 0;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
+    background: var(--card);
+    border: 2px solid var(--muted-foreground);
+}
+
+.note-log__time {
+    display: block;
+    font: 500 0.6875rem var(--font-mono);
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+}
+
+.note-log__text {
+    margin-top: 0.125rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+.note-log__text > :first-child {
+    margin-top: 0;
+}
+
+.note-log__text > :last-child {
+    margin-bottom: 0;
+}
+
+/* ------------------------------------------------------- users admin */
+
+.user-list {
+    list-style: none;
+    padding: 0;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    overflow: hidden;
+}
+
+.user-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.75rem 0.75rem 0.75rem 1rem;
+}
+
+.user-row + .user-row {
+    border-top: 1px solid var(--border);
+}
+
+.user-row__avatar {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: none;
+    border-radius: 999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+}
+
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.user-badge[data-kind="admin"] {
+    background: color-mix(in oklab, var(--live) 16%, transparent);
+    color: var(--live-ink);
+}
+
+.user-badge[data-kind="on"] {
+    background: color-mix(in oklab, oklch(0.65 0.16 150) 16%, transparent);
+    color: oklch(0.5 0.14 150);
+}
+
+.dark .user-badge[data-kind="on"] {
+    color: oklch(0.75 0.14 150);
+}
+
+.user-badge[data-kind="off"] {
+    background: color-mix(in oklab, var(--destructive) 12%, transparent);
+    color: var(--destructive);
+}
+
+.token-new {
+    padding: 0.875rem 1rem;
+    border-radius: 0.875rem;
+    border: 1px solid color-mix(in oklab, var(--live) 35%, var(--border));
+    background: var(--live-soft);
+}
+
+/* crispy help text: a quiet hint under its field */
+p[id$="_helptext"] {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+}
+
+/* crispy checkbox field: box on the left, label and hint beside it */
+fieldset.form-control:has(> input[type="checkbox"]) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.625rem;
+    align-items: start;
+    margin: 0 0 0.875rem;
+    padding: 0;
+    border: 0;
+}
+
+fieldset.form-control:last-child {
+    margin-bottom: 0;
+}
+
+fieldset.form-control > input[type="checkbox"] {
+    grid-row: span 2;
+    margin-top: 0.15rem;
+}
+
+fieldset.form-control > input[type="checkbox"] + label {
+    padding: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* crispy's grouped fields (passwords, flags) as quiet panels */
+#generic-offcanvas-body .border.rounded {
+    border-color: var(--border);
+    border-radius: 0.875rem;
+}
+
+/* ------------------------------------------------------------- FAB */
+
+.tl-fab {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    height: 3.25rem;
+    padding: 0 1.125rem 0 1rem;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    box-shadow: var(--shadow-float);
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out), opacity 160ms ease, box-shadow 200ms ease;
+}
+
+.tl-fab:active {
+    transform: scale(0.96);
+}
+
+.tl-fab kbd {
+    background: color-mix(in oklab, var(--primary-foreground) 14%, transparent);
+    border-color: color-mix(in oklab, var(--primary-foreground) 22%, transparent);
+    color: inherit;
+}
+
+@media (max-width: 639px) {
+    .tl-fab {
+        width: 3.5rem;
+        height: 3.5rem;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .tl-fab span,
+    .tl-fab kbd {
+        display: none;
+    }
+}
+
+.tl-fab[data-hidden="true"] {
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+}
+
+/* ----------------------------------------------------------- toasts */
+
+.tl-toaster {
+    position: fixed;
+    z-index: 1200;
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+@media (min-width: 640px) {
+    .tl-toaster {
+        left: auto;
+        align-items: flex-end;
+    }
+}
+
+.tl-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: max-content;
+    max-width: min(24rem, 100%);
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-float);
+    font-size: 0.875rem;
+    font-weight: 500;
+    pointer-events: auto;
+    transition: opacity 300ms ease, transform 400ms var(--ease-out);
+
+    @starting-style {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+    }
+}
+
+.tl-toast[data-leaving] {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+    transition-duration: 180ms;
+}
+
+.tl-toast__icon[data-kind="success"] { color: oklch(0.65 0.16 150); }
+.tl-toast__icon[data-kind="error"] { color: var(--destructive); }
+.tl-toast__icon[data-kind="warning"] { color: var(--live); }
+.tl-toast__icon[data-kind="info"] { color: var(--muted-foreground); }
+
+/* ------------------------------------------------- one entrance moment */
+
+/* On first paint the spine draws downward and rows settle in behind it.
+   htmx swaps (fired while typing) only crossfade. */
+.log[data-intro] .log__list::before {
+    animation: spine-draw 700ms var(--ease-in-out) both;
+}
+
+.log[data-intro] .log__row {
+    animation: row-in 420ms var(--ease-out) both;
+    animation-delay: calc(min(var(--i, 0), 12) * 35ms + 120ms);
+}
+
+.log[data-intro] .log__day-label {
+    animation: row-in 420ms var(--ease-out) both;
+}
+
+@keyframes spine-draw {
+    from { transform: scaleY(0); }
+}
+
+@keyframes row-in {
+    from { opacity: 0; transform: translateY(6px); }
+}
+
+#events-workspace.htmx-settling > *,
+#events-workspace > .swap-in {
+    animation: swap-in 160ms ease both;
+}
+
+@keyframes swap-in {
+    from { opacity: 0.4; }
+}
+
+#events-workspace.htmx-request {
+    opacity: 0.7;
+    transition: opacity 150ms ease 120ms;
+}
+
+/* ------------------------------------------------------ reduced motion */
+
+/* ---------------------------------------------------------------------------
+   Lane page
+   --------------------------------------------------------------------------- */
+.lane-page__title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    line-height: 1.05;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+}
+
+.lane-page__title > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lane-page__title .chip__dot {
+    width: 0.6em;
+    height: 0.6em;
+}
+
+.lane-page__shelved {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.75rem;
+    background: var(--muted);
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+}
+
+/* a track 1.5 usual gaps long: the fill is time since the last one, the tick is when it's due */
+.lane-pace {
+    --due: 66.667%;
+}
+
+.lane-pace__track {
+    position: relative;
+    height: 0.5rem;
+    margin-top: auto;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+}
+
+.lane-pace__fill {
+    height: 100%;
+    width: var(--pace);
+    border-radius: inherit;
+    background: var(--tag);
+    transition: width 900ms cubic-bezier(0.23, 1, 0.32, 1);
+
+    @starting-style {
+        width: 0;
+    }
+}
+
+/* past due: the overrun shows in amber */
+.lane-pace__track.is-late::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--due);
+    width: calc(var(--pace) - var(--due));
+    background: var(--live);
+    transition: width 600ms 600ms cubic-bezier(0.23, 1, 0.32, 1);
+
+    @starting-style {
+        width: 0;
+    }
+}
+
+.lane-pace__due {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--due);
+    width: 2px;
+    background: var(--card);
+}
+
+/* the value sits above, the track settles at the card's bottom */
+.lane-pace .lane-card__value {
+    margin-bottom: 0.875rem;
+}
+
+.lane-pace__ticks {
+    position: relative;
+    height: 1.25rem;
+    margin-top: 0.375rem;
+    font: 400 0.6875rem/1.25rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.lane-pace__due-label {
+    position: absolute;
+    left: var(--due);
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.lane-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (min-width: 48rem) {
+    .lane-cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.lane-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+}
+
+.lane-card--wide {
+    grid-column: span 2;
+}
+
+.lane-card__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+}
+
+.lane-card__value {
+    margin-top: 0.25rem;
+    font: 600 1.375rem/1.2 var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lane-card__value.is-late {
+    color: var(--live-ink);
+}
+
+.lane-card__sub {
+    margin-top: auto;
+    padding-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+
+.lane-trend {
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+.lane-trend.is-up {
+    color: oklch(0.6 0.15 150);
+}
+
+.lane-trend.is-down {
+    color: var(--live-ink);
+}
+
+.lane-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.375rem;
+    height: 9rem;
+}
+
+.lane-week > li {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    gap: 0.375rem;
+    min-width: 0;
+}
+
+.lane-week__bar {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    height: max(var(--h), 3px);
+    border-radius: 0.3rem;
+    background: color-mix(in oklab, var(--tag) 70%, transparent);
+    font: 600 0.625rem/1.6 var(--font-mono);
+    color: var(--background);
+    overflow: hidden;
+}
+
+.lane-week--hours {
+    grid-template-columns: repeat(24, 1fr);
+    gap: 0.1875rem;
+    height: 6rem;
+}
+
+.lane-week--hours .lane-week__day {
+    text-align: left;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.lane-values {
+    display: grid;
+    gap: 0.375rem;
+}
+
+/* each value's bar is its share of the most common one */
+.lane-values > li {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    isolation: isolate;
+}
+
+.lane-values > li::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w);
+    z-index: -1;
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, var(--tag) 22%, transparent);
+}
+
+.lane-values b {
+    font: 600 0.75rem/1.6 var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+.field-stats {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--border);
+}
+
+.field-stats dt {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+}
+
+.field-stats dd {
+    font: 600 0.875rem var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.lane-week__day {
+    height: 1rem;
+    text-align: center;
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+}
+
+.lane-recent {
+    border-top: 1px solid var(--border);
+}
+
+.lane-recent > li > button {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    width: 100%;
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.lane-recent > li > button:hover {
+    background: var(--muted);
+}
+
+.lane-recent time {
+    flex: none;
+    width: 8.5rem;
+    font: 400 0.75rem var(--font-mono);
+    color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-property: opacity, color, background-color, border-color !important;
+    }
+
+    .live-dot::after,
+    .node[data-shape="ongoing"]::after {
+        display: none;
+    }
+}
+
+/* event form: a day picker and an optional time side by side */
+.tl-when {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tl-when__day {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.tl-when__time {
+    width: 6.5rem;
+    flex: none;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.tl-when__time:disabled {
+    opacity: 0.6;
+}

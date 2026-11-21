@@ -1,0 +1,19 @@
+{% extends "layouts/base.html" %}
+{% load i18n %}
+{% load settings %}
+
+{% block title %}{% translate 'Home' %}{% endblock %}
+
+{% block content %}
+  <div class="container px-md-3 py-3">
+    <div class="text-3xl font-bold font-mono w-full mb-3">{% settings "SITE_TITLE" %}</div>
+
+    <c-ui.card>
+      <h2 class="card-title">{% translate 'Everything is wired up' %}</h2>
+      <p>{% translate 'Replace this template and the home view in apps/common/views.py with your own.' %}</p>
+      <p class="text-subtle">
+        {% translate 'Add pages by creating an app under app/apps/, then include its URLconf from the project urls.py.' %}
+      </p>
+    </c-ui.card>
+  </div>
+{% endblock %}

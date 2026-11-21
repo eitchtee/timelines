@@ -1,0 +1,45 @@
+{% load i18n %}
+<script type="application/json" id="suggest-config">
+{
+  "tags": "{% url 'tag_autocomplete' %}",
+  "fields": "{% url 'field_keys' %}",
+  "dates": "{% url 'date_interpret' %}",
+  "ongoing": "{% url 'ongoing_autocomplete' %}",
+  "presets": {
+    "now": "{{ _('Now')|escapejs }}",
+    "today": "{{ _('Today')|escapejs }}",
+    "allDay": "{{ _('all day')|escapejs }}",
+    "min30": "{{ _('30 minutes ago')|escapejs }}",
+    "hour1": "{{ _('1 hour ago')|escapejs }}",
+    "hour3": "{{ _('3 hours ago')|escapejs }}",
+    "morning": "{{ _('This morning')|escapejs }}",
+    "yesterday": "{{ _('Yesterday')|escapejs }}",
+    "yesterdayEvening": "{{ _('Yesterday evening')|escapejs }}",
+    "days2": "{{ _('2 days ago')|escapejs }}",
+    "week1": "{{ _('A week ago')|escapejs }}"
+  },
+  "ops": [
+    ["is:", "{{ _('running, span or moment')|escapejs }}"],
+    ["has:", "{{ _('has a field')|escapejs }}"],
+    ["after:", "{{ _('on or after a date')|escapejs }}"],
+    ["before:", "{{ _('on or before a date')|escapejs }}"],
+    ["last:", "{{ _('within the last hours, days…')|escapejs }}"]
+  ],
+  "is": [
+    ["ongoing", "{{ _('still running')|escapejs }}"],
+    ["span", "{{ _('has a start and an end')|escapejs }}"],
+    ["point", "{{ _('a single moment')|escapejs }}"]
+  ],
+  "last": [
+    ["24h", "{{ _('past day')|escapejs }}"],
+    ["7d", "{{ _('past week')|escapejs }}"],
+    ["30d", "{{ _('past 30 days')|escapejs }}"],
+    ["90d", "{{ _('past 90 days')|escapejs }}"],
+    ["1y", "{{ _('past year')|escapejs }}"]
+  ],
+  "dateHint": "{{ _('or type: 20/10, 20/10,14:30, 2pm, 20/10~22/10 for a span, 20/10~ if still running')|escapejs }}",
+  "searchDateHint": "{{ _('type a date: 20/10, 20-10-2026, 2026-10-20…')|escapejs }}",
+  "ambiguousHint": "{{ _('could be read either way')|escapejs }}",
+  "fieldHint": "{{ _('field')|escapejs }}"
+}
+</script>

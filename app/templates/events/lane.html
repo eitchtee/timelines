@@ -1,0 +1,244 @@
+{% extends "layouts/base.html" %}
+{% load i18n %}
+{% load json %}
+{% load lane_format %}
+
+{% block title %}{% for tag in lane.tags %}#{{ tag.name }} {% empty %}{% translate 'No tags' %}{% endfor %}{% endblock %}
+
+{% block content %}
+  <div id="lane-body" class="lane-page max-w-4xl mx-auto px-4 sm:px-8 pt-6 sm:pt-10 pb-32"
+       style="--tag: {{ lane.tags.0.color|default:'var(--muted-foreground)' }}"
+       hx-get="{{ request.path }}" hx-trigger="eventsChanged from:window"
+       hx-select="#lane-body" hx-target="this" hx-swap="outerHTML">
+
+    <a href="{% url 'lanes' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+       class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <i class="fa-solid fa-arrow-left text-[0.7rem]"></i>{% translate 'Lanes' %}
+    </a>
+
+    <header class="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+      <h1 class="lane-page__title">
+        {% for tag in lane.tags %}
+          <span><span class="chip__dot" style="--tag: {{ tag.color }}"></span>#{{ tag.name }}</span>
+        {% empty %}
+          <span class="text-muted-foreground">{% translate 'No tags' %}</span>
+        {% endfor %}
+      </h1>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" class="btn" data-size="sm"
+                @click="window.dispatchEvent(new CustomEvent('open-quick-log', { detail: { tags: '{{ lane.key|escapejs }}'.split(' ').filter(Boolean) } }))">
+          <i class="fa-solid fa-plus text-[0.7rem]"></i>{% translate 'Log one' %}
+        </button>
+        <form method="post" action="{% url 'lane_archive' key=lane.url_key %}">
+          {% csrf_token %}
+          {% if lane.archived %}
+            <input type="hidden" name="archived" value="0">
+            <button class="btn" data-variant="outline" data-size="sm">
+              <i class="fa-solid fa-box-open text-[0.7rem]"></i>{% translate 'Unarchive' %}
+            </button>
+          {% else %}
+            <input type="hidden" name="archived" value="1">
+            <button class="btn" data-variant="outline" data-size="sm"
+                    title="{% translate 'Hide it from Lanes until you log to it again' %}">
+              <i class="fa-solid fa-box-archive text-[0.7rem]"></i>{% translate 'Archive' %}
+            </button>
+          {% endif %}
+        </form>
+      </div>
+    </header>
+
+    {% if lane.archived %}
+      <p class="lane-page__shelved">
+        <i class="fa-solid fa-box-archive text-[0.75rem]"></i>
+        {% translate 'Archived. It stays off the Lanes page until you log to it again.' %}
+      </p>
+    {% endif %}
+
+    <div class="lane-cards mt-8">
+      {# Next: how far into its usual gap this lane is right now #}
+      <section class="lane-card lane-card--wide lane-pace">
+        <h2 class="lane-card__label">{% translate 'Next one' %}</h2>
+        {% if lane.due %}
+          <p class="lane-card__value{% if lane.due.state == 'late' %} is-late{% endif %}">
+            {% if lane.due.state == 'now' %}{% translate 'about now' %}
+            {% elif lane.due.state == 'ahead' %}{% blocktranslate with days=lane.due.days %}in {{ days }}d{% endblocktranslate %}
+            {% else %}{% blocktranslate with days=lane.due.days %}{{ days }}d late{% endblocktranslate %}{% endif %}
+          </p>
+          <div class="lane-pace__track{% if lane.due.state == 'late' %} is-late{% endif %}" style="--pace: {{ lane.pace_pct|stringformat:'s' }}%" aria-hidden="true">
+            <div class="lane-pace__fill"></div>
+            <span class="lane-pace__due"></span>
+          </div>
+          <div class="lane-pace__ticks" aria-hidden="true">
+            <span>{{ lane.last_at|date:"j M" }}</span>
+            <span class="lane-pace__due-label">~{{ lane.next_at|date:"j M" }}</span>
+          </div>
+        {% else %}
+          <p class="lane-card__value">—</p>
+          <p class="lane-card__sub">{% translate 'Log a second one to find its pace.' %}</p>
+        {% endif %}
+      </section>
+
+      <section class="lane-card">
+        <h2 class="lane-card__label">{% translate 'Last one' %}</h2>
+        <p class="lane-card__value">{% blocktranslate with ago=lane.hours_since_last|hours_span %}{{ ago }} ago{% endblocktranslate %}</p>
+        <p class="lane-card__sub">{{ lane.last_at|date:"SHORT_DATE_FORMAT" }} {{ lane.last_at|time:"H:i" }}</p>
+      </section>
+
+      <section class="lane-card">
+        <h2 class="lane-card__label">{% translate 'Every' %}</h2>
+        {% if lane.avg_interval_days is not None %}
+          <p class="lane-card__value">~{{ lane.avg_interval_days|days_span }}</p>
+          <p class="lane-card__sub">{% blocktranslate with median=lane.median_gap|days_span %}median {{ median }}{% endblocktranslate %}</p>
+        {% else %}
+          <p class="lane-card__value">—</p>
+        {% endif %}
+      </section>
+
+      <section class="lane-card">
+        <h2 class="lane-card__label">{% translate 'Last 30 days' %}</h2>
+        <p class="lane-card__value">{{ lane.last_30 }}×</p>
+        <p class="lane-card__sub">
+          {% if lane.trend_30 > 0 %}<span class="lane-trend is-up">+{{ lane.trend_30 }}</span>
+          {% elif lane.trend_30 < 0 %}<span class="lane-trend is-down">{{ lane.trend_30 }}</span>
+          {% else %}±0{% endif %}
+          {% translate 'vs the 30 before' %}
+        </p>
+      </section>
+
+      <section class="lane-card">
+        <h2 class="lane-card__label">{% translate 'Logged' %}</h2>
+        <p class="lane-card__value">{{ lane.count }}×</p>
+        <p class="lane-card__sub">{% blocktranslate with since=lane.first_at|date:"SHORT_DATE_FORMAT" %}since {{ since }}{% endblocktranslate %}</p>
+      </section>
+
+      {% if lane.longest_gap is not None %}
+        <section class="lane-card">
+          <h2 class="lane-card__label">{% translate 'Gaps' %}</h2>
+          <p class="lane-card__value">{{ lane.shortest_gap|days_span }} – {{ lane.longest_gap|days_span }}</p>
+          <p class="lane-card__sub">{% translate 'shortest to longest' %}</p>
+        </section>
+      {% endif %}
+
+      {% if lane.avg_duration_hours %}
+        <section class="lane-card">
+          <h2 class="lane-card__label">{% translate 'Lasts' %}</h2>
+          <p class="lane-card__value">~{{ lane.avg_duration_hours|hours_span }}</p>
+          <p class="lane-card__sub">{% blocktranslate with total=lane.running_hours|hours_span %}{{ total }} in total{% endblocktranslate %}</p>
+        </section>
+      {% endif %}
+    </div>
+
+    <div class="mt-3 grid grid-cols-1 md:grid-cols-[1fr_15rem] gap-3">
+      {% if lane.gaps|length >= 2 %}
+        {# Rhythm: the gap before each one, against the average #}
+        <section class="rounded-2xl border border-border bg-card p-4" data-gaps="{{ lane.gaps|json }}"
+                 x-data="{
+                   init() {
+                     if (!window.Chart) return;
+                     const gaps = JSON.parse(this.$el.dataset.gaps);
+                     const css = getComputedStyle(document.documentElement);
+                     const muted = convertColorToRgba(css.getPropertyValue('--muted-foreground'));
+                     const grid = convertColorToRgba(css.getPropertyValue('--border'));
+                     const color = '{{ lane.tags.0.color|default:"#888888" }}';
+                     const avg = {{ lane.avg_interval_days|stringformat:'s' }};
+                     new window.Chart(this.$refs.canvas, {
+                       data: {
+                         labels: gaps.map(g => new Date(g.t).toLocaleDateString(document.documentElement.lang, { day: 'numeric', month: 'short' })),
+                         datasets: [
+                           { type: 'bar', data: gaps.map(g => g.days), backgroundColor: color + 'b3', borderRadius: 3, maxBarThickness: 18 },
+                           { type: 'line', data: gaps.map(() => avg), borderColor: muted, borderDash: [4, 4], borderWidth: 1, pointRadius: 0, pointHitRadius: 0 }
+                         ]
+                       },
+                       options: {
+                         responsive: true,
+                         maintainAspectRatio: false,
+                         plugins: { legend: { display: false }, tooltip: { filter: i => i.datasetIndex === 0, callbacks: { label: i => i.parsed.y + 'd' } } },
+                         scales: {
+                           x: { grid: { display: false }, border: { display: false }, ticks: { color: muted, maxTicksLimit: 6, maxRotation: 0, font: { size: 10, family: 'JetBrains Mono Variable' } } },
+                           y: { grid: { color: grid }, border: { display: false }, ticks: { color: muted, maxTicksLimit: 4, callback: v => v + 'd', font: { size: 10, family: 'JetBrains Mono Variable' } } }
+                         }
+                       }
+                     });
+                   }
+                 }">
+          <h2 class="text-sm font-semibold">{% translate 'Days between each one' %}</h2>
+          <p class="text-xs text-muted-foreground">{% translate 'The dashed line is its average.' %}</p>
+          <div class="mt-3 h-36"><canvas x-ref="canvas" role="img" aria-label="{% translate 'Days between each one' %}"></canvas></div>
+        </section>
+      {% endif %}
+
+      <section class="rounded-2xl border border-border bg-card p-4{% if lane.gaps|length < 2 %} md:col-span-2{% endif %}">
+        <h2 class="text-sm font-semibold">{% translate 'Which days' %}</h2>
+        <ol class="lane-week mt-3">
+          {% for wd in lane.weekdays %}
+            <li title="{{ wd.n }}×">
+              <span class="lane-week__bar" style="--h: {{ wd.pct }}%">{% if wd.n %}<b>{{ wd.n }}</b>{% endif %}</span>
+              <span class="lane-week__day">{{ wd.day|date:"D" }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    </div>
+
+    {% if lane.has_times %}
+    <section class="rounded-2xl border border-border bg-card p-4 mt-3">
+      <h2 class="text-sm font-semibold">{% translate 'Time of day' %}</h2>
+      <ol class="lane-week lane-week--hours mt-3">
+        {% for h in lane.hours %}
+          <li title="{{ h.hour|stringformat:'02d' }}:00 · {{ h.n }}×">
+            <span class="lane-week__bar" style="--h: {{ h.pct }}%"></span>
+            <span class="lane-week__day">{% if h.hour|divisibleby:6 %}{{ h.hour|stringformat:'02d' }}h{% endif %}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+    {% endif %}
+
+    {% if lane.fields or lane.text_fields %}
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% for f in lane.fields %}
+          {% include "events/fragments/field_chart.html" with series_key=f.key points=f.points stats=f %}
+        {% endfor %}
+        {# text fields: their most common values #}
+        {% for f in lane.text_fields %}
+          <section class="rounded-2xl border border-border bg-card p-4">
+            <h2 class="text-sm font-semibold font-mono">{{ f.key }}</h2>
+            <ul class="lane-values mt-3">
+              {% for value, n in f.top %}
+                <li style="--w: {% widthratio n f.max 100 %}%">
+                  <span class="min-w-0 truncate">{{ value }}</span>
+                  <b>{{ n }}×</b>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <section class="mt-10">
+      <h2 class="text-sm font-semibold">{% translate 'Latest' %}</h2>
+      <ul class="lane-recent mt-2">
+        {% for ev in lane.recent %}
+          <li>
+            <button type="button" hx-get="{% url 'event_detail' pk=ev.id %}" hx-target="#generic-offcanvas">
+              <time class="tabular" datetime="{{ ev.start }}">{{ ev.at|date:"SHORT_DATE_FORMAT" }}{% if not ev.all_day %} {{ ev.at|time:"H:i" }}{% endif %}</time>
+              <span class="min-w-0 truncate">{{ ev.title }}</span>
+              {% if ev.is_ongoing %}<span class="live-dot" title="{% translate 'Running' %}"></span>{% endif %}
+            </button>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if lane.tags and lane.count > lane.recent|length %}
+        <a class="mt-2 inline-block text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 decoration-1"
+           href="{% url 'index' %}?q={% for tag in lane.tags %}%23{{ tag.slug }}{% if not forloop.last %}+{% endif %}{% endfor %}">
+          {% blocktranslate count counter=lane.count trimmed %}See all {{ counter }} in the feed{% plural %}See all {{ counter }} in the feed{% endblocktranslate %}
+        </a>
+      {% endif %}
+    </section>
+  </div>
+
+  {% include "events/fragments/suggest_config.html" %}
+  {% include "events/fragments/quick_capture.html" %}
+{% endblock %}

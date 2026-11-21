@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+# Container entrypoints must keep LF regardless of the checkout platform.
+*.sh text eol=lf
+**/docker/**/start text eol=lf
+Dockerfile text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

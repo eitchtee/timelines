@@ -1,0 +1,16 @@
+{% load i18n %}
+{# Drawer shell for form fragments (users, settings); matches the event drawer #}
+<div class="flex flex-col flex-1 min-h-0">
+  <header class="flex items-start gap-3 px-6 pt-5 pb-4 shrink-0">
+    <h2 class="flex-1 min-w-0 text-2xl font-[650] leading-tight tracking-[-0.02em]">{% block title %}{% endblock %}</h2>
+    <button type="button" class="btn -me-2 text-muted-foreground" data-variant="ghost" data-size="icon-sm"
+            data-bs-dismiss="offcanvas" aria-label="{% translate 'Close' %}">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </header>
+  <div id="generic-offcanvas-body" class="flex-1 overflow-y-auto overscroll-contain px-6 pb-6"
+       _="install init_tom_select
+          install init_datepicker">
+    {% block body %}{% endblock %}
+  </div>
+</div>

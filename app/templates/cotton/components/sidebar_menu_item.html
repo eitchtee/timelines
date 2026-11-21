@@ -1,0 +1,14 @@
+{% load active_link %}
+<li>
+  <a href="{% url url %}"
+     {% if keep_query %}data-keep-query{% endif %}
+     class="press text-sm flex items-center no-underline ps-3 p-2 rounded-lg sidebar-item {% active_link views=active css_class="sidebar-active" %}"
+      {% if tooltip %}
+     data-tippy-placement="right"
+     data-tippy-content="{{ tooltip }}"
+      {% endif %}>
+    <i class="{{ icon }} fa-fw"></i>
+    <span
+        class="ms-3">{{ title }}</span>
+  </a>
+</li>

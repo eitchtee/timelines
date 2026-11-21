@@ -1,0 +1,71 @@
+{% load settings %}
+{% load i18n %}
+
+<button type="button"
+        class="btn"
+        data-variant="ghost"
+        data-size="icon-sm"
+        title="{% translate 'Toggle theme' %}"
+        hx-get="{% url 'toggle_theme' %}"
+        hx-swap="none"
+        _="on click toggle .dark on <html/> end">
+  <span class="hidden dark:inline"><i class="fa-regular fa-sun"></i></span>
+  <span class="inline dark:hidden"><i class="fa-regular fa-moon"></i></span>
+</button>
+
+<div class="relative" x-data="{ open: false }" @click.outside="open = false">
+  <button type="button"
+          class="btn"
+          data-variant="ghost"
+          data-size="icon-sm"
+          @click="open = !open"
+          :aria-expanded="open"
+          aria-label="{% translate 'Account menu' %}">
+    <i class="fa-solid fa-ellipsis"></i>
+  </button>
+
+  <div x-show="open"
+       x-cloak
+       x-transition:enter="pop-enter" x-transition:enter-start="pop-from" x-transition:enter-end="pop-to"
+       x-transition:leave="pop-leave" x-transition:leave-start="pop-to" x-transition:leave-end="pop-from"
+       role="menu"
+       class="menu bottom-full right-0 mb-2 w-52 origin-bottom-right">
+    <button type="button"
+            class="menu__item" role="menuitem"
+            @click="open = false"
+            hx-get="{% url 'user_settings' %}"
+            hx-target="#generic-offcanvas">
+      <i class="fa-solid fa-gear"></i>
+      <span>{% translate 'Settings' %}</span>
+    </button>
+    <button type="button"
+            class="menu__item" role="menuitem"
+            @click="open = false"
+            hx-get="{% url 'user_edit' pk=request.user.id %}"
+            hx-target="#generic-offcanvas">
+      <i class="fa-solid fa-user"></i>
+      <span>{% translate 'Edit profile' %}</span>
+    </button>
+    {% if request.user.is_superuser %}
+      <div class="menu__sep"></div>
+      <button type="button"
+              class="menu__item" role="menuitem"
+              @click="open = false"
+              hx-get="{% url 'invalidate_cache' %}"
+              hx-swap="none">
+        <i class="fa-solid fa-broom"></i>
+        <span>{% translate 'Clear cache' %}</span>
+      </button>
+    {% endif %}
+    <div class="menu__sep"></div>
+    <a href="{% url 'logout' %}"
+       class="menu__item menu__item--danger" role="menuitem">
+      <i class="fa-solid fa-door-open"></i>
+      <span>{% translate 'Logout' %}</span>
+    </a>
+    <div class="menu__sep"></div>
+    <div class="px-2.5 pt-1 pb-1.5 text-[0.6875rem] text-muted-foreground font-mono">
+      v. {% settings "APP_VERSION" %}
+    </div>
+  </div>
+</div>

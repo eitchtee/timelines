@@ -1,0 +1,10 @@
+{% load i18n %}
+{# Fields used before with these tags, as Quick log badges: a click types "key:" #}
+{% for field in suggestions %}
+  <button type="button" class="chip chip--sm qc-ghost token-in"
+          x-show="!detectedPairs.some(p => p.key === '{{ field.key|escapejs }}')"
+          @click="insertToken('{{ field.key|escapejs }}:')"
+          title="{% if field.sample_value %}{% blocktranslate with value=field.sample_value %}Last time: {{ value }}{% endblocktranslate %}{% endif %}">
+    <i class="fa-solid fa-plus text-[0.55rem]"></i><span class="font-mono">{{ field.key }}</span>{% if field.unit %}<span class="opacity-60">{{ field.unit }}</span>{% endif %}
+  </button>
+{% endfor %}

@@ -1,0 +1,166 @@
+{% load i18n %}
+{% load humanize %}
+{% load markdown %}
+{% load event_notes %}
+{% load lane_format %}
+
+{% include "events/fragments/tag_chips.html" %}
+<div class="mt-8" aria-live="polite">
+{% include "events/fragments/running.html" %}
+
+{% if events %}
+  <p class="mb-5 text-sm text-muted-foreground">
+    {% blocktranslate count counter=events|length trimmed %}
+      {{ counter }} event
+    {% plural %}
+      {{ counter }} events
+    {% endblocktranslate %}{% translate ', last one' %} {{ events.0.started_at|timesince }} {% translate 'ago' %}
+  </p>
+{% endif %}
+{% if events %}
+  {% now "Y" as this_year %}
+  <div class="log" {% if intro %}data-intro{% endif %}>
+    {% regroup events by started_at|date:"Y-m-d" as days %}
+    {% for day in days %}
+      {% with first=day.list.0.started_at %}
+        <section class="log__day" aria-label="{{ first|date:'DATE_FORMAT' }}">
+          <h2 class="log__day-label">
+            {% if first|date:"Y" == this_year %}
+              <span>{{ first|naturalday:"l, j F"|capfirst }}</span>
+            {% else %}
+              <span>{{ first|naturalday:"l, j F Y"|capfirst }}</span>
+            {% endif %}
+            <span class="log__day-count">{{ day.list|length }}</span>
+          </h2>
+
+          <ol class="log__list">
+            {% for ev in day.list %}
+              {% with tag=ev.tags.all|first %}
+                <li class="log__row" data-event-id="{{ ev.id }}"
+                    style="--i: {{ forloop.counter0 }};{% if tag %} --tag: {{ tag.color }};{% endif %}"
+                    x-data="{ menuOpen: false }"
+                    :class="menuOpen && 'z-30'">
+                  <time class="log__time" datetime="{{ ev.started_at|date:'c' }}">{% if ev.all_day %}<span class="log__allday">{% translate 'all day' %}</span>{% else %}{{ ev.started_at|time:"H:i" }}{% endif %}</time>
+
+                  <div class="log__node-wrap" aria-hidden="true">
+                    <span class="node" data-shape="{{ ev.shape }}"></span>
+                  </div>
+
+                  <div class="log__body">
+                    <button type="button" class="log__title"
+                            hx-get="{% url 'event_detail' pk=ev.id %}"
+                            hx-target="#generic-offcanvas">{{ ev.title }}</button>
+
+                    {% if ev.shape != 'point' or ev.parent %}
+                      <div class="log__meta">
+                        {% if ev.shape == 'ongoing' %}
+                          <span class="inline-flex items-center gap-1.5 font-medium text-(--live-ink)">
+                            <span class="live-dot"></span>
+                            {% translate 'running for' %} {{ ev.started_at|timesince }}
+                          </span>
+                        {% elif ev.shape == 'span' %}
+                          <span class="tabular">
+                            {% translate 'until' %} {% if ev.all_day %}{{ ev.ended_at|date:"j M" }}{% else %}{{ ev.ended_at|date:"j M, H:i" }}{% endif %}
+                            <span class="opacity-70">({{ ev.duration|duration_span }})</span>
+                          </span>
+                        {% endif %}
+                        {% if ev.parent %}
+                          <button type="button" class="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                                  hx-get="{% url 'event_detail' pk=ev.parent_id %}" hx-target="#generic-offcanvas">
+                            <i class="fa-solid fa-turn-up rotate-90 text-[0.65rem]"></i>{{ ev.parent.title }}
+                          </button>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+
+                    {% if ev.notes %}
+                      {% with notes=ev.notes|note_entries %}
+                        <p class="log__notes">{% if notes.body %}{{ notes.body|limited_markdown|striptags }}{% else %}{% with latest=notes.entries|last %}<span class="opacity-70">{{ latest.at|naturaltime }}:</span> {{ latest.text|limited_markdown|striptags }}{% endwith %}{% endif %}</p>
+                      {% endwith %}
+                    {% endif %}
+
+                    {% if ev.tags.all or ev.data_points.all %}
+                      <div class="log__chips">
+                        {% for t in ev.tags.all %}
+                          <button type="button" class="chip chip--sm" style="--tag: {{ t.color }}"
+                                  :aria-pressed="hasToken('#{{ t.slug }}')"
+                                  @click="toggleToken('#{{ t.slug }}')">
+                            <span class="chip__dot"></span>#{{ t.name }}
+                          </button>
+                        {% endfor %}
+                        {% for dp in ev.data_points.all %}
+                          <span class="datum">{{ dp.key }}<b>{{ dp.value_text }}{{ dp.unit }}</b></span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+
+                  <div class="log__actions">
+                    {% if ev.shape == 'ongoing' %}
+                      <button type="button" class="btn" data-variant="outline" data-size="xs"
+                              hx-post="{% url 'event_stop' pk=ev.id %}" hx-swap="none">
+                        <i class="fa-solid fa-stop text-[0.6rem]"></i>{% translate 'End' %}
+                      </button>
+                    {% endif %}
+                    <div class="relative" @click.outside="menuOpen = false" @keydown.escape.stop="menuOpen = false">
+                      <button type="button" class="btn reveal text-muted-foreground" data-variant="ghost" data-size="icon-sm"
+                              @click="menuOpen = !menuOpen" :aria-expanded="menuOpen" aria-haspopup="menu"
+                              aria-label="{% translate 'More actions' %}">
+                        <i class="fa-solid fa-ellipsis"></i>
+                      </button>
+                      <div x-show="menuOpen" x-cloak role="menu"
+                           x-transition:enter="pop-enter" x-transition:enter-start="pop-from" x-transition:enter-end="pop-to"
+                           x-transition:leave="pop-leave" x-transition:leave-start="pop-to" x-transition:leave-end="pop-from"
+                           class="menu right-0 top-full mt-1 origin-top-right">
+                        <button type="button" role="menuitem" class="menu__item" @click="menuOpen = false"
+                                hx-get="{% url 'event_detail' pk=ev.id %}" hx-target="#generic-offcanvas">
+                          <i class="fa-regular fa-pen-to-square"></i>{% translate 'Open and edit' %}
+                        </button>
+                        <div class="menu__sep"></div>
+                        <button type="button" role="menuitem" class="menu__item menu__item--danger" @click="menuOpen = false"
+                                hx-post="{% url 'event_delete' pk=ev.id %}"
+                                hx-confirm="{% translate 'Delete this event?' %}"
+                data-confirm-detail="{% translate 'Its fields and notes go with it. This cannot be undone.' %}"
+                data-confirm-text="{% translate 'Delete' %}"
+                                hx-swap="none">
+                          <i class="fa-regular fa-trash-can"></i>{% translate 'Delete' %}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              {% endwith %}
+            {% endfor %}
+          </ol>
+        </section>
+      {% endwith %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="flex flex-col items-center text-center px-6 py-16 sm:py-24">
+    <svg class="w-28 h-10 text-muted-foreground/40 mb-6" viewBox="0 0 112 40" fill="none" aria-hidden="true">
+      <path d="M4 20h104" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 6"/>
+      <circle cx="28" cy="20" r="5" fill="currentColor"/>
+      <circle cx="56" cy="20" r="5" fill="currentColor"/>
+      <circle cx="84" cy="20" r="6" fill="none" stroke="var(--live)" stroke-width="2.5"/>
+    </svg>
+    {% if q %}
+      <h2 class="text-lg font-semibold">{% translate 'Nothing matches that search' %}</h2>
+      <p class="mt-1.5 text-sm text-muted-foreground max-w-sm">
+        {% translate 'Try fewer filters, or widen the time range.' %}
+      </p>
+      <button type="button" class="btn mt-5" data-variant="outline" data-size="sm" @click="query = ''; refresh()">
+        {% translate 'Clear search' %}
+      </button>
+    {% else %}
+      <h2 class="text-lg font-semibold">{% translate 'Nothing logged yet' %}</h2>
+      <p class="mt-1.5 text-sm text-muted-foreground max-w-sm">
+        {% translate 'Log the small stuff: a dose taken, a filter changed, the dog being sick. Patterns show up once there are a few.' %}
+      </p>
+      <button type="button" class="btn mt-5" data-size="sm" @click="$dispatch('open-quick-log')">
+        <i class="fa-solid fa-plus text-[0.7rem]"></i>{% translate 'Log an event' %}<kbd class="ms-1 !bg-transparent !text-inherit !border-current/30">N</kbd>
+      </button>
+    {% endif %}
+  </div>
+{% endif %}
+</div>

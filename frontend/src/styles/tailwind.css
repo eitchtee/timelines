@@ -1,0 +1,248 @@
+@import "tailwindcss" source("../../../app/templates/");
+@import "basecoat-css";
+@import "./timelines.css";
+@plugin "../plugins/tw-bootstrap-grid-plugin.js";
+
+@custom-variant hover (&:hover);
+
+@theme {
+    --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+    /* Compatibility aliases for scaffolded cookiecutter templates */
+    --color-base-100: var(--card);
+    --color-base-200: var(--muted);
+    --color-base-300: var(--sidebar);
+    --color-base-content: var(--foreground);
+    --color-primary-content: var(--primary-foreground);
+    --color-secondary-content: var(--secondary-foreground);
+    --color-error: var(--destructive);
+    --color-success: oklch(0.627 0.194 149.214);
+    --color-warning: oklch(0.769 0.188 70.08);
+    --color-info: oklch(0.623 0.214 259.815);
+    --radius-box: var(--radius);
+}
+
+:root {
+    --root-bg: var(--background);
+}
+
+@layer utilities {
+    .textarea {
+        min-height: unset;
+    }
+
+    .bg-root {
+        background-color: var(--root-bg) !important;
+    }
+
+    .fieldset-legend {
+        @apply text-xs justify-start;
+    }
+
+    .fieldset-legend .asteriskField {
+        @apply text-destructive;
+    }
+
+    .hr {
+        @apply border-border;
+    }
+
+    .card.card-border-base-100,
+    .card.card-border-base-200,
+    .card.card-border,
+    .card.card-border-base-300 {
+        border: 1px solid var(--border);
+    }
+
+    .text-subtle {
+        @apply text-muted-foreground;
+    }
+
+    /* Card Data Display Styles */
+    .card-data-section {
+        @apply space-y-2;
+    }
+
+    .card-data-row {
+        @apply flex justify-between py-1 px-3 rounded-lg transition-colors duration-150 hover:bg-muted/50 items-center;
+    }
+
+    .card-data-label {
+        @apply text-muted-foreground text-sm font-medium;
+    }
+
+    .card-data-values {
+        @apply flex flex-col items-end gap-0.5;
+    }
+
+    .card-data-divider {
+        @apply border-border my-3;
+    }
+
+    .table-col-auto {
+        @apply w-1;
+    }
+
+    .btn.btn-free {
+        @apply py-1;
+        height: unset;
+    }
+}
+
+@layer components {
+    /* === Sidebar styles === */
+    .sidebar-active {
+        @apply text-foreground bg-sidebar-accent rounded-lg font-semibold;
+    }
+
+    .sidebar-item:not(.sidebar-active) {
+        @apply text-muted-foreground hover:text-foreground;
+    }
+
+    /* not ".sidebar": basecoat ships its own component under that name */
+    .app-sidebar {
+        @apply z-1020 fixed top-0 start-0 h-full transition-[width] duration-200 ease-out;
+    }
+
+    .sidebar-floating {
+        @apply lg:w-16 lg:hover:w-80;
+    }
+
+    .sidebar-floating #sidebar {
+        @apply lg:w-16 lg:group-hover:w-72 transition-[width,box-shadow] duration-200 ease-out overflow-hidden;
+    }
+
+    .sidebar-floating + main {
+        @apply lg:ml-16;
+    }
+
+    .sidebar-floating .sidebar-item span {
+        @apply lg:invisible lg:group-hover:visible;
+    }
+
+    .htmx-swapping .sidebar-floating,
+    .htmx-settling .sidebar-floating {
+        pointer-events: none;
+        @apply lg:w-16!;
+    }
+
+    .sidebar-floating .sidebar-invisible {
+        @apply lg:invisible lg:group-hover:visible;
+    }
+
+    .sidebar-floating .sidebar-menu-header {
+        @apply lg:hidden lg:group-hover:inline;
+    }
+
+    .sidebar-floating #sidebar-toggle-btn .fa-thumbtack-slash {
+        @apply hidden!;
+    }
+
+    .sidebar-floating #sidebar-toggle-btn .fa-thumbtack {
+        @apply inline-block!;
+    }
+
+    .sidebar-floating .sidebar-title span {
+        @apply lg:invisible lg:group-hover:visible;
+    }
+
+    .sidebar-submenu-header {
+        @apply flex justify-between;
+    }
+
+    .sidebar-submenu-title {
+        @apply flex items-center;
+    }
+
+    .sidebar-floating .sidebar-submenu-header {
+        @apply lg:justify-center lg:group-hover:justify-between;
+    }
+
+    .sidebar-floating .sidebar-submenu-title {
+        @apply lg:h-8;
+    }
+
+    .sidebar-floating .sidebar-submenu-title i {
+        @apply lg:me-0 lg:group-hover:me-2;
+    }
+
+    .sidebar-floating .sidebar-submenu-title h5 {
+        @apply lg:invisible lg:w-0 lg:h-0 lg:overflow-hidden lg:group-hover:visible lg:group-hover:w-auto lg:group-hover:h-auto;
+    }
+
+    .sidebar-floating .sidebar-submenu-header button {
+        @apply lg:hidden! lg:group-hover:flex!;
+    }
+
+    .sidebar-floating .list-unstyled {
+        @apply group-hover:lg:overflow-y-auto lg:overflow-y-hidden overflow-y-auto overflow-x-hidden;
+    }
+
+    .sidebar-floating .sidebar-item {
+        @apply text-wrap lg:text-nowrap;
+    }
+
+    .sidebar-floating .sidebar-item-list {
+        @apply overflow-y-auto lg:overflow-y-hidden lg:group-hover:overflow-y-auto overflow-x-hidden;
+    }
+
+    .sidebar-fixed {
+        @apply lg:w-72;
+    }
+
+    .sidebar-fixed #sidebar {
+        @apply lg:w-72 transition-[width] duration-200 ease-out;
+    }
+
+    .sidebar-fixed .sidebar-item-list {
+        @apply overflow-y-auto overflow-x-hidden;
+    }
+
+    .sidebar-fixed + main {
+        @apply lg:ml-72;
+    }
+
+    .sidebar-fixed .sidebar-item {
+        @apply text-wrap;
+    }
+
+    .sidebar-fixed .sidebar-item span {
+        @apply lg:visible;
+    }
+
+    .sidebar-fixed .sidebar-menu-header {
+        @apply lg:inline;
+    }
+
+    .sidebar-fixed #sidebar-toggle-btn .fa-thumbtack-slash {
+        @apply inline-block!;
+    }
+
+    .sidebar-fixed #sidebar-toggle-btn .fa-thumbtack {
+        @apply hidden!;
+    }
+
+    .sidebar-fixed .sidebar-title span {
+        @apply lg:visible;
+    }
+
+    .sidebar-fixed .sidebar-submenu-header {
+        @apply lg:flex lg:justify-between;
+    }
+
+    .sidebar-fixed .sidebar-submenu-title i {
+        @apply me-2!;
+    }
+
+    .sidebar-fixed .sidebar-submenu-title h5 {
+        @apply lg:block;
+    }
+
+    .sidebar-fixed .sidebar-submenu-header button {
+        @apply lg:inline;
+    }
+
+    .sidebar-fixed .list-unstyled {
+        @apply overflow-y-auto overflow-x-hidden;
+    }
+}

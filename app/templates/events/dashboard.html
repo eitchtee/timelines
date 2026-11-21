@@ -1,0 +1,185 @@
+{% extends "layouts/base.html" %}
+{% load i18n %}
+{% load settings %}
+
+{% block title %}{% translate 'Timelines' %}{% endblock %}
+
+{% block content %}
+  <div class="{% if view_mode == 'feed' %}max-w-5xl{% else %}max-w-none{% endif %} mx-auto px-4 sm:px-8 pt-6 sm:pt-10 pb-32"
+       x-data="{
+         ...tlSuggest('search', 'searchInput'),
+         viewMode: '{{ view_mode }}',
+         month: '{{ month_key }}',
+         {# calendar paging: "2026-11" -> "2026-12" #}
+         shiftMonth(n) {
+           const [y, m] = this.month.split('-').map(Number);
+           const d = new Date(y, m - 1 + n, 1);
+           this.month = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+           this.refresh();
+         },
+         thisMonth() {
+           const d = new Date();
+           this.month = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+           this.refresh();
+         },
+         get monthLabel() {
+           if (!this.month) return '';
+           const [y, m] = this.month.split('-').map(Number);
+           const label = new Intl.DateTimeFormat(document.documentElement.lang || undefined, { month: 'long', year: 'numeric' })
+             .format(new Date(y, m - 1, 1));
+           return label[0].toUpperCase() + label.slice(1);
+         },
+         rangeKey: '{{ range_key }}',
+         showArchived: {{ show_archived|yesno:'true,false' }},
+         query: '{{ q|escapejs }}',
+         showHelp: false,
+         refresh() {
+           this.$nextTick(() => this.$refs.searchInput.dispatchEvent(new Event('search')));
+         },
+         hasToken(token) {
+           return this.query.trim().split(/\s+/).includes(token);
+         },
+         {# the URL mirrors search + range, so the other page and reloads pick them up #}
+         syncUrl() {
+           const params = new URLSearchParams();
+           if (this.query.trim()) params.set('q', this.query.trim());
+           if (this.rangeKey !== 'all') params.set('range', this.rangeKey);
+           if (this.viewMode === 'calendar' && this.month) params.set('month', this.month);
+           if (this.viewMode === 'timeline' && this.showArchived) params.set('archived', '1');
+           const qs = params.toString();
+           history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : ''));
+         },
+         toggleToken(token) {
+           const parts = this.query.trim() ? this.query.trim().split(/\s+/) : [];
+           const idx = parts.indexOf(token);
+           idx >= 0 ? parts.splice(idx, 1) : parts.push(token);
+           this.query = parts.join(' ');
+           this.refresh();
+         }
+       }"
+       x-effect="query; rangeKey; month; showArchived; syncUrl()">
+
+    {# Header: title + what's on screen, view controls on the right #}
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+      <h1 class="text-[2rem] sm:text-[2.5rem] leading-none font-[650] tracking-[-0.03em]"
+          x-text="viewMode === 'calendar' ? monthLabel : {
+            '7d': '{% translate 'Past week' %}',
+            '30d': '{% translate 'Past 30 days' %}',
+            '90d': '{% translate 'Past 90 days' %}',
+            '1y': '{% translate 'Past year' %}',
+            'all': '{% translate 'Everything' %}'
+          }[rangeKey]">{% if view_mode == 'calendar' %}{{ calendar.month|date:'F Y'|capfirst }}{% else %}{% translate 'Everything' %}{% endif %}</h1>
+
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {% if view_mode == 'timeline' %}
+          <label class="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input type="checkbox" role="switch" class="input" x-model="showArchived" @change="refresh()">
+            {% translate 'Show archived' %}
+          </label>
+        {% endif %}
+        {% if view_mode == 'calendar' %}
+          {# months instead of a range: the grid is the range #}
+          <div class="flex items-center gap-1" role="group" aria-label="{% translate 'Month' %}">
+            <button type="button" class="btn" data-variant="outline" data-size="icon-sm" @click="shiftMonth(-1)" aria-label="{% translate 'Previous month' %}">
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button type="button" class="btn" data-variant="outline" data-size="sm" @click="thisMonth()">{% translate 'Today' %}</button>
+            <button type="button" class="btn" data-variant="outline" data-size="icon-sm" @click="shiftMonth(1)" aria-label="{% translate 'Next month' %}">
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        {% else %}
+        <div class="seg" role="group" aria-label="{% translate 'Time range' %}" data-ready="false"
+             x-init="tlSeg($el)" x-effect="rangeKey; $nextTick(() => tlSeg($el))">
+          <span class="seg__pill" aria-hidden="true"></span>
+          {% for key, label in range_choices %}
+            <button type="button" class="seg__btn tabular" :aria-pressed="rangeKey === '{{ key }}'"
+                    @click="rangeKey = '{{ key }}'; refresh()">{{ label }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </header>
+
+    {# Search + tag filters #}
+    <form id="workspace-filters" class="mt-6 sm:mt-8" @submit.prevent="refresh()">
+      <input type="hidden" name="view" :value="viewMode">
+      <input type="hidden" name="range" :value="rangeKey">
+      <input type="hidden" name="month" :value="month">
+      <input type="hidden" name="archived" :value="showArchived ? '1' : ''">
+
+      <div class="search">
+        {% include "events/fragments/suggest_list.html" with list_id="search-suggest" list_class="tl-suggest-pop" %}
+        <i class="fa-solid fa-magnifying-glass ms-4 text-sm text-muted-foreground" aria-hidden="true"></i>
+        <input type="search"
+               name="q"
+               x-ref="searchInput"
+               x-model="query"
+               data-search-input
+               autocomplete="off"
+               spellcheck="false"
+               aria-label="{% translate 'Search events' %}"
+               placeholder="{% translate 'Search, #tag, key:value…' %}"
+               role="combobox"
+               aria-autocomplete="list"
+               aria-controls="search-suggest"
+               :aria-expanded="sugItems.length > 0"
+               @input="sugRefresh()"
+               @click="sugRefresh()"
+               @focus="sugRefresh()"
+               @keydown="sugKey($event)"
+               @blur="sugClose()"
+               hx-get="{% url 'events_results' %}"
+               hx-trigger="input changed delay:250ms, search, eventsChanged from:window"
+               hx-target="#events-workspace"
+               hx-include="#workspace-filters"
+               hx-indicator="#search-spinner">
+        <div class="flex items-center gap-1 pe-2">
+          <span id="search-spinner" class="htmx-indicator text-xs text-muted-foreground px-1" aria-hidden="true">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+          </span>
+          <button type="button" class="btn text-muted-foreground" data-variant="ghost" data-size="icon-sm"
+                  x-show="query" x-cloak @click="query = ''; refresh(); $refs.searchInput.focus()"
+                  aria-label="{% translate 'Clear search' %}">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <kbd class="hidden sm:inline-grid" x-show="!query" aria-hidden="true">/</kbd>
+          <button type="button" class="btn text-muted-foreground" data-variant="ghost" data-size="icon-sm"
+                  @click="showHelp = !showHelp" :aria-expanded="showHelp"
+                  aria-label="{% translate 'Search syntax' %}">
+            <i class="fa-regular fa-circle-question"></i>
+          </button>
+        </div>
+      </div>
+
+      <div x-show="showHelp" x-cloak x-collapse>
+        <dl class="mt-3 grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-4 gap-y-1.5 rounded-xl bg-muted/60 px-4 py-3 text-[0.8125rem]">
+          <dt class="font-mono text-foreground">#dog #puke</dt><dd class="text-muted-foreground">{% translate 'events with these tags' %}</dd>
+          <dt class="font-mono text-foreground">-#walk</dt><dd class="text-muted-foreground">{% translate 'leave a tag out' %}</dd>
+          <dt class="font-mono text-foreground">battery:&lt;20</dt><dd class="text-muted-foreground">{% translate 'compare a number' %}</dd>
+          <dt class="font-mono text-foreground">ate:chicken</dt><dd class="text-muted-foreground">{% translate 'match a text field' %}</dd>
+          <dt class="font-mono text-foreground">has:battery</dt><dd class="text-muted-foreground">{% translate 'has this field at all' %}</dd>
+          <dt class="font-mono text-foreground">is:ongoing</dt><dd class="text-muted-foreground">{% translate 'still running (or is:span, is:point)' %}</dd>
+          <dt class="font-mono text-foreground">last:30d</dt><dd class="text-muted-foreground">{% translate 'within the last h / d / w / m / y' %}</dd>
+          <dt class="font-mono text-foreground">after:20/10</dt><dd class="text-muted-foreground">{% translate 'on or after a date' %}</dd>
+          <dt class="font-mono text-foreground">before:2026-10-31</dt><dd class="text-muted-foreground">{% translate 'on or before a date' %}</dd>
+        </dl>
+      </div>
+
+    </form>
+
+    {# Feed or lanes #}
+    <div id="events-workspace">
+      {% if view_mode == 'timeline' %}
+        {% include "events/fragments/timeline.html" %}
+      {% elif view_mode == 'calendar' %}
+        {% include "events/fragments/calendar.html" %}
+      {% else %}
+        {% include "events/fragments/feed.html" with intro=True %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% include "events/fragments/suggest_config.html" %}
+  {% include "events/fragments/quick_capture.html" %}
+{% endblock %}

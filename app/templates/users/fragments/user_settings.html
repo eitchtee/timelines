@@ -1,0 +1,15 @@
+{% extends 'extends/offcanvas.html' %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% translate 'Settings' %}{% endblock %}
+
+{% block body %}
+<form hx-post="{% url 'user_settings' %}" hx-target="#generic-offcanvas" novalidate>
+    {% crispy form %}
+</form>
+<div class="my-6 border-t border-border"></div>
+<div id="api-token-settings">
+  {% include "users/fragments/api_tokens.html" %}
+</div>
+{% endblock %}

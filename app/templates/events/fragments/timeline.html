@@ -1,0 +1,167 @@
+{% load i18n %}
+{% load json %}
+
+{% include "events/fragments/tag_chips.html" %}
+<div class="mt-8" aria-live="polite">
+
+{% if lanes and lanes.lanes %}
+  {{ lanes|json_script:"lanes-data" }}
+  <div class="nle" x-data="laneTimeline('lanes-data', '{% url 'event_detail' pk=0 %}')">
+
+    <div class="nle__toolbar">
+      <div class="flex items-center gap-1">
+        <button type="button" class="btn" data-variant="outline" data-size="icon-sm" @click="zoomBy(1 / 1.6)" aria-label="{% translate 'Zoom out' %}">
+          <i class="fa-solid fa-minus text-xs"></i>
+        </button>
+        <button type="button" class="btn" data-variant="outline" data-size="icon-sm" @click="zoomBy(1.6)" aria-label="{% translate 'Zoom in' %}">
+          <i class="fa-solid fa-plus text-xs"></i>
+        </button>
+        <button type="button" class="btn" data-variant="ghost" data-size="sm" @click="fitAll()">{% translate 'Fit all' %}</button>
+        <button type="button" class="btn" data-variant="ghost" data-size="sm" @click="goToday()">{% translate 'Today' %}</button>
+      </div>
+      <p class="hidden md:block text-xs text-muted-foreground">
+        <kbd>Ctrl</kbd> + {% translate 'scroll to zoom, drag to move, click a day to log on it' %}
+      </p>
+    </div>
+
+    {# One scrolling canvas: each row is a sticky label + its lane, so tall labels grow the whole row #}
+    <div class="nle__viewport" x-ref="viewport"
+         :class="{ 'is-dragging': drag?.moved, 'is-scrolled': scrollX > 0 }"
+         @scroll.passive="onScroll()"
+         @wheel="onWheel($event)"
+         @pointerdown="onPointerDown($event)"
+         @pointermove="onPointerMove($event)"
+         @pointerup="onPointerUp($event)"
+         @pointerleave="if (!drag) hover = null">
+      <div class="nle__canvas" :style="`width: calc(var(--label-w) + ${width}px)`">
+        <div class="nle__row nle__row--ruler">
+          <div class="nle__corner" x-ref="corner"></div>
+          <div class="nle__ruler" :style="`width: ${width}px`" aria-hidden="true">
+            <template x-for="m in months" :key="m.key">
+              <span class="nle__month" :style="`left: ${m.left}px`" x-text="m.label"></span>
+            </template>
+            <template x-for="d in visibleDays" :key="d.i">
+              <span class="nle__day" :class="{ 'is-weekend': d.weekend, 'is-today': d.today }"
+                    :style="`left: ${d.left}px; width: ${dayW}px`">
+                <span x-text="d.wd"></span><b x-text="d.num"></b>
+              </span>
+            </template>
+          </div>
+        </div>
+
+        <div class="nle__rows">
+          {# day lines, today, hovered day and now: drawn once across every lane #}
+          <div class="nle__overlay" x-ref="strip" :style="`width: ${width}px`" aria-hidden="true">
+            <template x-for="g in gridLines" :key="g.i">
+              <span class="nle__gridline" :class="g.month && 'is-month'" :style="`left: ${g.left}px`"></span>
+            </template>
+            <div class="nle__today" :style="`left: ${todayLeft}px; width: ${dayW}px`"></div>
+            <div class="nle__hovercol" x-show="hover && !drag?.moved" :style="hover ? { left: hover.day * dayW + 'px', width: dayW + 'px' } : {}"></div>
+            <div class="nle__now" :style="`left: ${x(nowMs)}px`"></div>
+          </div>
+
+          {% for lane in lanes.lanes %}
+            <div class="nle__row{% if lane.archived %} is-archived{% endif %}" :class="hover && !drag?.moved && hover.lane === {{ forloop.counter0 }} && 'is-hover'"
+                 style="--tag: {{ lane.tags.0.color|default:'var(--muted-foreground)' }}">
+              <a class="nle__label lane__link" draggable="false" href="{% url 'lane_detail' key=lane.url_key %}" data-keep-query>
+                <span class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold text-sm leading-tight">
+                  {% for tag in lane.tags %}
+                    <span class="inline-flex items-center gap-1"><span class="chip__dot" style="--tag: {{ tag.color }}"></span>#{{ tag.name }}</span>
+                  {% empty %}
+                    <span class="text-muted-foreground">{% translate 'No tags' %}</span>
+                  {% endfor %}
+                </span>
+                <span class="lane__stats truncate">
+                  {% if lane.archived %}<span class="lane__shelved">{% translate 'Archived' %}</span>{% endif %}
+                  {{ lane.count }}×{% if lane.avg_interval_days is not None %}, {% translate 'every' %} ~<b>{{ lane.avg_interval_days|floatformat:"-1" }}d</b>{% endif %}
+                </span>
+              </a>
+
+              <div class="nle__lane" data-lane="{{ forloop.counter0 }}" :style="`width: ${width}px`">
+                {# the day cell a click would log into #}
+                <div class="nle__cell" x-show="hover && !drag?.moved && hover.lane === {{ forloop.counter0 }}" aria-hidden="true"
+                     :style="hover ? { left: hover.day * dayW + 'px', width: dayW + 'px' } : {}">
+                  <i class="fa-solid fa-plus" x-show="dayW >= 14"></i>
+                </div>
+                <template x-for="ev in lanes[{{ forloop.counter0 }}].events" :key="ev.id">
+                  <button type="button" data-event
+                          :class="ev.e ? 'nle__bar' : 'nle__dot'"
+                          :data-ongoing="ev.is_ongoing ? 'true' : null"
+                          :style="barStyle(ev) + (ev.e ? '' : '; background: ' + swatch(lanes[{{ forloop.counter0 }}]))"
+                          :aria-label="ev.title"
+                          @click="openEvent(ev.id)">
+                    <span x-show="ev.e" x-text="ev.title"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# Everything on the hovered day #}
+    <div class="nle__card" x-show="hoverInfo && !drag?.moved" x-cloak :style="hoverCardStyle" aria-hidden="true">
+      <template x-if="hoverInfo">
+        <div>
+          <div class="font-semibold text-sm" x-text="hoverInfo.label"></div>
+          <template x-for="g in hoverInfo.groups" :key="g.lane.key">
+            <div class="mt-2.5">
+              <div class="flex flex-wrap gap-x-1.5 text-xs font-semibold">
+                <template x-for="t in g.lane.tags" :key="t.slug">
+                  <span class="inline-flex items-center gap-1"><span class="chip__dot" :style="`--tag: ${t.color}`"></span><span x-text="'#' + t.name"></span></span>
+                </template>
+                <span x-show="!g.lane.tags.length" class="text-muted-foreground">{% translate 'No tags' %}</span>
+              </div>
+              <ul class="mt-1 space-y-0.5">
+                <template x-for="ev in g.items" :key="ev.id">
+                  <li class="flex gap-2 text-[0.8125rem]">
+                    <span class="font-mono text-[0.6875rem] text-muted-foreground w-10 shrink-0 pt-px" x-text="timeLabel(ev, hoverInfo.from)"></span>
+                    <span class="min-w-0 truncate" x-text="ev.title"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+          <p x-show="!hoverInfo.groups.length" class="mt-1 text-xs text-muted-foreground">{% translate 'Nothing logged on this day.' %}</p>
+          <p class="mt-2.5 pt-2 border-t border-border text-[0.6875rem] text-muted-foreground">
+            <template x-if="hover.lane !== null && lanes[hover.lane]">
+              <span>
+                <i class="fa-solid fa-plus text-[0.6rem] me-0.5"></i>{% translate 'Click to log' %}
+                <b class="text-foreground" x-text="lanes[hover.lane].tags.map(t => '#' + t.name).join(' ') || '{% translate 'an untagged event' %}'"></b>
+                {% translate 'on this day' %}
+              </span>
+            </template>
+            <span x-show="hover.lane === null">{% translate 'Point at a lane to log something on this day' %}</span>
+          </p>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  {# Charts for the number fields in each lane #}
+  <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3 empty:hidden">
+    {% for lane in lanes.lanes %}
+      {% for series_key, points in lane.numeric_series.items %}
+        {% include "events/fragments/field_chart.html" %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="flex flex-col items-center text-center px-6 py-16 sm:py-24">
+    <svg class="w-28 h-14 text-muted-foreground/40 mb-6" viewBox="0 0 112 56" fill="none" aria-hidden="true">
+      <path d="M4 14h104M4 42h104" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 6"/>
+      <circle cx="30" cy="14" r="5" fill="currentColor"/>
+      <circle cx="70" cy="14" r="5" fill="currentColor"/>
+      <circle cx="46" cy="42" r="5" fill="currentColor"/>
+      <circle cx="86" cy="42" r="5" fill="currentColor"/>
+    </svg>
+    <h2 class="text-lg font-semibold">{% if q %}{% translate 'Nothing matches that search' %}{% else %}{% translate 'Nothing to lay out yet' %}{% endif %}</h2>
+    <p class="mt-1.5 text-sm text-muted-foreground max-w-sm">
+      {% translate 'Each tag combination gets its own lane, so #dog and #dog #puke sit side by side.' %}
+    </p>
+  </div>
+{% endif %}
+{# on Lanes and Calendar the grid comes first #}
+{% include "events/fragments/running.html" with at_bottom=True %}
+</div>

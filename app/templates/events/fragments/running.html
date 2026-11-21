@@ -1,0 +1,41 @@
+{% load i18n %}
+{# Lives inside the swapped workspace so ending a span updates it too #}
+{% if ongoing_events %}
+  <section class="{% if at_bottom %}mt-8{% else %}mb-8{% endif %}" aria-labelledby="running-heading">
+    <h2 id="running-heading" class="tl-eyebrow mb-2.5">
+      <span class="live-dot"></span>{% translate 'Running now' %}
+    </h2>
+    <div class="running">
+      {% for ev in ongoing_events %}
+        <div class="running__card">
+          <div class="min-w-0">
+            <button type="button" class="running__title block truncate max-w-[16rem]"
+                    hx-get="{% url 'event_detail' pk=ev.id %}" hx-target="#generic-offcanvas">
+              {{ ev.title }}
+            </button>
+            {% if ev.tags.all %}
+              <div class="relative z-1 mt-1 flex flex-wrap gap-1">
+                {% for t in ev.tags.all %}
+                  <button type="button" class="chip chip--sm" style="--tag: {{ t.color }}"
+                          :aria-pressed="hasToken('#{{ t.slug }}')"
+                          @click="toggleToken('#{{ t.slug }}')">
+                    <span class="chip__dot"></span>#{{ t.name }}
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div class="running__elapsed tabular mt-1"
+                 x-data="{ t: tlElapsed('{{ ev.started_at|date:'c' }}') }"
+                 x-init="setInterval(() => t = tlElapsed('{{ ev.started_at|date:'c' }}'), 30000)">
+              <span x-text="t">{{ ev.started_at|timesince }}</span>
+            </div>
+          </div>
+          <button type="button" class="btn" data-variant="outline" data-size="sm"
+                  hx-post="{% url 'event_stop' pk=ev.id %}" hx-swap="none">
+            <i class="fa-solid fa-stop text-[0.7rem]"></i>{% translate 'End' %}
+          </button>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
