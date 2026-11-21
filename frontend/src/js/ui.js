@@ -105,10 +105,10 @@ async function suggestionsFor(el, mode) {
     const t = tok.typed;
     const q = (s) => encodeURIComponent(s);
 
-    const tag = t.match(mode === 'search' ? /^(-?)#([\w-]*)$/ : /^()#([\w-]*)$/);
+    const tag = t.match(mode === 'search' ? /^(-?)#([\p{L}\p{N}_-]*)$/u : /^()#([\p{L}\p{N}_-]*)$/u);
     if (tag) {
         const term = tag[2].toLowerCase();
-        const present = new Set([...el.value.matchAll(/#([\w-]+)/g)].map((m) => m[1].toLowerCase()));
+        const present = new Set([...el.value.matchAll(/#([\p{L}\p{N}_-]+)/gu)].map((m) => m[1].toLowerCase()));
         present.delete(term);
         const tags = ((await getJson(`${cfg.tags}?q=${q(term)}`))?.tags || [])
             .filter((x) => !present.has(x.slug)).slice(0, 6);
@@ -174,7 +174,7 @@ async function suggestionsFor(el, mode) {
     }
 
     // a bare word: offer operators and field names that start with it
-    if (/^[a-z][\w-]*$/i.test(t)) {
+    if (/^\p{L}[\p{L}\p{N}_-]*$/u.test(t)) {
         const ops = cfg.ops.filter(([o]) => o.startsWith(t.toLowerCase()))
             .map(([o, hint]) => ({label: o, hint, insert: o, enter: false}));
         const keys = ((await getJson(`${cfg.fields}?q=${q(t)}`))?.keys || [])

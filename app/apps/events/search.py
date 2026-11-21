@@ -26,9 +26,9 @@ from .dates import parse_loose, prefers_day_first, readings
 
 _QUERY_TOKEN_RE = re.compile(
     r"""
-    (?P<neg>-)?\#(?P<tag>[A-Za-z0-9][A-Za-z0-9_-]{0,62})
+    (?P<neg>-)?\#(?P<tag>[^\W_][\w-]{0,62})
     |
-    (?P<key>[A-Za-z][A-Za-z0-9_-]{0,62}):(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<val>[^\s]+))
+    (?P<key>[^\W\d_][\w-]{0,62}):(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<val>[^\s]+))
     |
     "(?P<phrase>[^"]+)"
     |

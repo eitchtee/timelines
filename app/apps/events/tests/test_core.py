@@ -237,3 +237,16 @@ def test_combo_lanes_keep_tag_combinations_apart(user):
     combo = get_tag_combo_lanes(user, q="#puke")["lanes"][0]
     assert combo["count"] == 2
     assert combo["avg_interval_days"] == 1.0
+
+
+def test_accented_tags_and_fields(user):
+    parsed = parse_quick_input("Consulta #saúde #pós-operatório pressão:12")
+    assert parsed.title == "Consulta"
+    assert parsed.tags == ["saúde", "pós-operatório"]
+    assert parsed.data_points == [("pressão", "12")]
+
+    create_event(user, parsed.title, tag_names=parsed.tags, data_points=parsed.data_points)
+    tag = Tag.objects.get(owner=user, name="saúde")
+    assert tag.slug == "saude"
+    for q in ("#saúde", "#saude", "pressão:12"):
+        assert [e.title for e in search_events(Event.objects.filter(owner=user), q)] == ["Consulta"]
