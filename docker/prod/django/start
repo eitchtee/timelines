@@ -12,4 +12,5 @@ python manage.py setup_users
 
 exec gunicorn timelines.wsgi:application \
     --bind 0.0.0.0:$INTERNAL_PORT \
-    --timeout 600
+    --timeout 600 \
+    --no-control-socket
