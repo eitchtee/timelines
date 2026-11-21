@@ -30,8 +30,10 @@ on:
 env:
   IMAGE_NAME: timelines
 
+# One queue per trigger: GitHub keeps only one waiting run per group, so a
+# shared group let a push to main silently cancel a queued release build.
 concurrency:
-  group: release
+  group: release-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
